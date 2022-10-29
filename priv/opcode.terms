@@ -1,0 +1,75 @@
+%% -*- mode: erlang -*-
+%% Copyright (c) 2022 Peter Morgan <peter.james.morgan@gmail.com>
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%% http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+
+
+{16#00, get}.
+{16#01, set}.
+{16#02, add}.
+{16#03, replace}.
+{16#04, delete}.
+{16#05, increment}.
+{16#06, decrement}.
+{16#07, quit}.
+{16#08, flush}.
+{16#09, getq}.
+{16#0a, noop}.
+{16#0b, version}.
+{16#0c, getk}.
+{16#0d, getkq}.
+{16#0e, append}.
+{16#0f, prepend}.
+{16#10, stat}.
+{16#11, setq}.
+{16#12, addq}.
+{16#13, replaceq}.
+{16#14, deleteq}.
+{16#15, incrementq}.
+{16#16, decrementq}.
+{16#17, quitq}.
+{16#18, flushq}.
+{16#19, appendq}.
+{16#1a, prependq}.
+{16#1b, verbosity}.
+{16#1c, touch}.
+{16#1d, gat}.
+{16#1e, gatq}.
+{16#20, sasl_list_mechs}.
+{16#21, sasl_auth}.
+{16#22, sasl_step}.
+{16#30, rget}.
+{16#31, rset}.
+{16#32, rsetq}.
+{16#33, rappend}.
+{16#34, rappendq}.
+{16#35, rprepend}.
+{16#36, rprependq}.
+{16#37, rdelete}.
+{16#38, rdeleteq}.
+{16#39, rincr}.
+{16#3a, rincrq}.
+{16#3b, rdecr}.
+{16#3c, rdecrq}.
+
+{16#3d, set_vbucket}.
+{16#3e, get_vbucket}.
+{16#3f, del_vbucket}.
+{16#40, tap_connect}.
+{16#41, tap_mutation}.
+{16#42, tap_delete}.
+{16#43, tap_flush}.
+{16#44, tap_opaque}.
+{16#45, tap_vbucket_set}.
+{16#46, tap_checkpoint_start}.
+{16#47, tap_checkpoint_end}.
