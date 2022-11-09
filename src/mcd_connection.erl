@@ -89,6 +89,7 @@ handle_event(info,
         {ok, Received} ->
             mcd_stat:gauge(#{name => bytes_read,
                              delta => byte_size(Received)}),
+
             {keep_state,
              Data#{partial := <<>>},
              [nei({recv, iolist_to_binary([Partial, Received])}), nei(recv)]};
@@ -125,6 +126,9 @@ handle_event(internal,
     {keep_state_and_data,
      [nei({decode, <<(binary:part(Encoded, {0, 24}))/bytes, Body/bytes>>}),
       nei({recv, Remainder})]};
+
+handle_event(internal, {recv, <<"stats", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
 
 handle_event(internal, {recv, <<"set ", _/bytes>> = Command}, _, _) ->
     {keep_state_and_data, nei({decode, Command})};
@@ -169,6 +173,7 @@ handle_event(internal,
                partial := Partial} = Data) ->
     case mcd_protocol:decode(Encoded) of
         {Decoded, Remainder} ->
+            cmd_stats(Decoded),
             {keep_state_and_data,
              [nei({callback,
                    recv,
@@ -211,6 +216,9 @@ handle_event(internal,
                partial := Partial} = Data) ->
     case socket:recv(Socket, 0, nowait) of
         {ok, Received} ->
+            mcd_stat:gauge(#{name => bytes_read,
+                             delta => byte_size(Received)}),
+
             {keep_state,
              Data#{partial := <<>>},
              [nei({recv, iolist_to_binary([Partial, Received])}), nei(recv)]};
@@ -224,3 +232,9 @@ handle_event(internal,
         {error, Reason} ->
             {stop, Reason}
     end.
+
+
+cmd_stats(#{header := #{opcode := flush}}) ->
+    mcd_stats:guage(cmd_flush);
+cmd_stats(_) ->
+    ok.

@@ -23,6 +23,15 @@
 
 -spec decode(binary()) -> {mcd:protocol(), binary()} | partial | error.
 
+decode(<<"STAT ", Remainder/bytes>>) ->
+    decode_text_command(stat, Remainder);
+
+decode(<<"stats", Remainder/bytes>>) ->
+    decode_text_command(stats, Remainder);
+
+decode(<<"stat", Remainder/bytes>>) ->
+    decode_text_command(stat, Remainder);
+
 decode(<<"set ", Remainder/bytes>>) ->
     decode_text_command(set, Remainder);
 
@@ -480,6 +489,13 @@ decode_binary(#{magic := request, opcode := Opcode} =  Header,
        Opcode == gatq ->
     #{header => Header, extra => #{expiration => Expiration}}.
 
+encode(#{command := Command}) when Command == stats ->
+    [atom_to_list(Command), ?RN];
+
+encode(#{command := Command,
+         key := Key,
+         value := Value}) when Command == stat ->
+    ["STAT ", Key, " ", Value, ?RN];
 
 encode(#{command := Command,
          keys := Keys}) when Command == get; Command == gets ->
@@ -965,6 +981,30 @@ decode_text_command(touch = Command, Remainder) ->
              Encoded}
     end;
 
+decode_text_command(stats = Command, Remainder) ->
+    [CommandLine, Encoded] = string:split(Remainder, ?RN),
+    {maps:filter(
+       fun
+           (arg, <<>>) ->
+               false;
+
+           (_, _) ->
+               true
+       end,
+       re_run(
+       #{command => Command,
+         subject => CommandLine,
+         re => "(?<arg>\\w+)?"})),
+     Encoded};
+
+decode_text_command(stat = Command, Remainder) ->
+    [CommandLine, Encoded] = string:split(Remainder, ?RN),
+    {re_run(
+       #{command => Command,
+         subject => CommandLine,
+         re => "(?<key>\\w+)\\s+(?<value>.+)"}),
+     Encoded};
+
 decode_text_command(Command, Remainder)
   when Command == incr;
        Command == decr ->
@@ -1009,7 +1049,7 @@ decode_text_storage_command(Command, Remainder)
             re => "(?<key>\\w+) (?<flags>\\d+) (?<expiry>\\d+) (?<bytes>\\d+)( (?<noreply>noreply))?",
             mapping => #{flags => fun erlang:binary_to_integer/1,
                          expiry => fun erlang:binary_to_integer/1,
-                         noreply => fun noreply/1,
+                         noreply => fun optional/1,
                          bytes => fun erlang:binary_to_integer/1}}),
     case DataBlock of
         <<Data:Size/bytes, ?RN, Encoded/bytes>> ->
@@ -1028,13 +1068,13 @@ decode_text_storage_command(cas = Command, Remainder) ->
                                      mapping => #{flags => fun erlang:binary_to_integer/1,
                                                   expiry => fun erlang:binary_to_integer/1,
                                                   unique => fun erlang:binary_to_integer/1,
-                                                  noreply => fun noreply/1,
+                                                  noreply => fun optional/1,
                                                   bytes => fun erlang:binary_to_integer/1}}),
     <<Data:Size/bytes, ?RN, Encoded/bytes>> = DataBlock,
     {maps:without([bytes], Decoded#{data => Data}), Encoded}.
 
 
-noreply(Optional) ->
+optional(Optional) ->
     Optional /= <<>>.
 
 

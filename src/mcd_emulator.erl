@@ -58,15 +58,24 @@ recv(#{message := #{extra := #{expiration := Expiry,
 
 recv(#{message := #{header := #{magic := request,
                                 opcode := noop} = Header}}) ->
-    {encode,#{header => response_header(Header)}};
+    {encode, #{header => response_header(Header)}};
 
 recv(#{message := #{header := #{magic := request,
                                 opcode := stat} = Header}}) ->
-    {encode,#{header => response_header(Header)}};
+    {encode,
+     lists:foldl(
+       fun
+           (Key, Value) ->
+               #{header => response_header(Header),
+                 key => Key,
+                 value => Value}
+       end,
+       [#{header => response_header(Header)}],
+       mcd_stat:all())};
 
 recv(#{message := #{header := #{magic := request,
                                 opcode := flush} = Header}}) ->
-    {encode,#{header => response_header(Header)}};
+    {encode, #{header => response_header(Header)}};
 
 recv(#{message := #{header := #{magic := request,
                                 opcode := version} = Header}}) ->
@@ -292,7 +301,19 @@ recv(#{message := #{command := delete, key := Key, noreply := false},
 
         1 ->
             {encode, deleted}
-    end.
+    end;
+
+recv(#{message := #{command := stats}}) ->
+    {encode,
+     lists:foldl(
+       fun
+           ({Key, Value}, A) when is_integer(Value) ->
+               [#{command => stat,
+                  key => atom_to_list(Key),
+                  value => integer_to_list(Value)} | A]
+       end,
+       [#{command => 'end'}],
+       mcd_stat:all())}.
 
 
 response_header(RequestHeader) ->

@@ -49,6 +49,7 @@
 
 -type text_command() :: set
                       | add
+                      | get
                       | replace
                       | append
                       | prepend.

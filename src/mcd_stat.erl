@@ -16,6 +16,7 @@
 -module(mcd_stat).
 
 
+-export([all/0]).
 -export([callback_mode/0]).
 -export([gauge/1]).
 -export([init/1]).
@@ -32,6 +33,16 @@ start_link() ->
 
 start_link(Arg) ->
     gen_statem:start_link(?MODULE, [Arg], envy_gen:options(?MODULE)).
+
+
+all() ->
+    ets:foldl(
+      fun
+          ({Name, #{counter := Counter}}, A) ->
+              [{Name, counters:get(Counter, 1)} | A]
+      end,
+      [],
+      ?MODULE).
 
 
 gauge(#{name := _, delta := Value} = Arg) ->

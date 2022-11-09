@@ -97,6 +97,11 @@ decode_encode_test_() ->
 
         "text/end-response.terms",
 
+        "text/stat-response-float.terms",
+        "text/stat-response-integer.terms",
+        "text/stat-response-text.terms",
+        "text/stats-request.terms",
+
         "text/meta-debug-request.terms",
         "text/meta-debug-flags-request.terms",
         "text/meta-debug-response.terms",
