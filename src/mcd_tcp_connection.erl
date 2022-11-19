@@ -13,7 +13,7 @@
 %% limitations under the License.
 
 
--module(mcd_connection).
+-module(mcd_tcp_connection).
 
 
 -export([callback_mode/0]).
@@ -27,9 +27,6 @@
 -include("mcd.hrl").
 -include_lib("kernel/include/inet.hrl").
 -include_lib("kernel/include/logger.hrl").
-
-
--callback recv(any()) -> {encode, any()} | {stop, any()} | stop.
 
 
 start() ->
@@ -66,18 +63,26 @@ handle_event(internal,
              {callback, F, A},
              _,
              #{arg := #{callback := #{module := M}}}) ->
-    case apply(M, F, A) of
-        {encode, L} when is_list(L) ->
-            {keep_state_and_data, [nei({encode, Decoded}) || Decoded <- L]};
+    try apply(M, F, A) of
+        {continue, Actions} when is_list(Actions) ->
+            {keep_state_and_data, [nei(Action) || Action <- Actions]};
 
-        {encode, _} = Encode ->
-            {keep_state_and_data, nei(Encode)};
+        {continue, Action} ->
+            {keep_state_and_data, nei(Action)};
+
+        continue ->
+            keep_state_and_data;
 
         stop ->
             stop;
 
         {stop, Reason} ->
             {stop, Reason}
+    catch
+        error:badarg ->
+            {keep_state_and_data,
+             nei({encode, #{reason => <<"bad command line format">>,
+                            command => client_error}})}
     end;
 
 handle_event(info,
@@ -90,12 +95,17 @@ handle_event(info,
             mcd_stat:gauge(#{name => bytes_read,
                              delta => byte_size(Received)}),
 
+            ?LOG_DEBUG(#{received => Received}),
+
             {keep_state,
              Data#{partial := <<>>},
              [nei({recv, iolist_to_binary([Partial, Received])}), nei(recv)]};
 
         {select, {select_info, _, _}} ->
             keep_state_and_data;
+
+        {error, econnreset} ->
+            stop;
 
         {error, closed} ->
             stop;
@@ -130,7 +140,25 @@ handle_event(internal,
 handle_event(internal, {recv, <<"stats", _/bytes>> = Command}, _, _) ->
     {keep_state_and_data, nei({decode, Command})};
 
+handle_event(internal, {recv, <<"flush_all", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"verbosity ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"incr ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"decr ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
 handle_event(internal, {recv, <<"set ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"append ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"prepend ", _/bytes>> = Command}, _, _) ->
     {keep_state_and_data, nei({decode, Command})};
 
 handle_event(internal, {recv, <<"cas ", _/bytes>> = Command}, _, _) ->
@@ -151,16 +179,22 @@ handle_event(internal, {recv, <<"replace ", _/bytes>> = Command}, _, _) ->
 handle_event(internal, {recv, <<"delete ", _/bytes>> = Command}, _, _) ->
     {keep_state_and_data, nei({decode, Command})};
 
+handle_event(internal, {recv, <<"ma ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"md ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
 handle_event(internal, {recv, <<"me ", _/bytes>> = Command}, _, _) ->
     {keep_state_and_data, nei({decode, Command})};
 
 handle_event(internal, {recv, <<"mg ", _/bytes>> = Command}, _, _) ->
     {keep_state_and_data, nei({decode, Command})};
 
-handle_event(internal, {recv, <<"ms ", _/bytes>> = Command}, _, _) ->
+handle_event(internal, {recv, <<"mn", _/bytes>> = Command}, _, _) ->
     {keep_state_and_data, nei({decode, Command})};
 
-handle_event(internal, {recv, <<"md ", _/bytes>> = Command}, _, _) ->
+handle_event(internal, {recv, <<"ms ", _/bytes>> = Command}, _, _) ->
     {keep_state_and_data, nei({decode, Command})};
 
 handle_event(internal, {recv, _}, _, _) ->
@@ -171,7 +205,7 @@ handle_event(internal,
              _,
              #{arg := #{callback := #{data := CallbackData}},
                partial := Partial} = Data) ->
-    case mcd_protocol:decode(Encoded) of
+    try mcd_protocol:decode(Encoded) of
         {Decoded, Remainder} ->
             cmd_stats(Decoded),
             {keep_state_and_data,
@@ -181,13 +215,37 @@ handle_event(internal,
                       data => CallbackData}]}),
               nei({recv, Remainder})]};
 
-        error ->
-            {keep_state_and_data,
-             nei({encode, #{command => error}})};
-
         partial ->
             {keep_state, Data#{partial := [Partial, Encoded]}}
+    catch
+        error:badarg ->
+            ?LOG_ERROR(#{encoded => Encoded}),
+            {keep_state_and_data,
+             nei({encode, #{reason => <<"bad command line format">>,
+                            command => client_error}})}
     end;
+
+handle_event(internal,
+             {expire, _} = Expire,
+             _,
+             #{requests := Requests} = Data) ->
+    {keep_state,
+     Data#{requests := gen_statem:send_request(
+                         mcd_reaper,
+                         Expire,
+                         expire,
+                         Requests)}};
+
+handle_event(internal,
+             {flush_all, _} = FlushAll,
+             _,
+             #{requests := Requests} = Data) ->
+    {keep_state,
+     Data#{requests := gen_statem:send_request(
+                         mcd_reaper,
+                         FlushAll,
+                         flush_all,
+                         Requests)}};
 
 handle_event(internal, {encode, Command}, _, _) when is_atom(Command) ->
     {keep_state_and_data, nei({encode, #{command => Command}})};
@@ -201,6 +259,9 @@ handle_event(internal, {send, Encoded}, _, #{arg := #{socket := Socket}}) ->
             mcd_stat:gauge(#{name => bytes_written,
                              delta => iolist_size(Encoded)}),
             keep_state_and_data;
+
+        {error, econnreset} ->
+            stop;
 
         {error, closed} ->
             stop;
@@ -219,6 +280,8 @@ handle_event(internal,
             mcd_stat:gauge(#{name => bytes_read,
                              delta => byte_size(Received)}),
 
+            ?LOG_DEBUG(#{received => Received}),
+
             {keep_state,
              Data#{partial := <<>>},
              [nei({recv, iolist_to_binary([Partial, Received])}), nei(recv)]};
@@ -226,15 +289,36 @@ handle_event(internal,
         {select, {select_info, _, _}} ->
             keep_state_and_data;
 
+        {error, econnreset} ->
+            stop;
+
         {error, closed} ->
             stop;
 
         {error, Reason} ->
             {stop, Reason}
+    end;
+
+handle_event(info, Msg, _, #{requests := Existing} = Data) ->
+    case gen_statem:check_response(Msg, Existing, true) of
+        {{reply, ok}, expire, Updated} ->
+            {keep_state, Data#{requests := Updated}};
+
+        {{reply, ok}, flush_all, Updated} ->
+            {keep_state, Data#{requests := Updated}};
+
+        no_request ->
+            ?LOG_ERROR(#{msg => Msg, data => Data}),
+            keep_state_and_data;
+
+        no_reply ->
+            ?LOG_ERROR(#{msg => Msg, data => Data}),
+            keep_state_and_data
     end.
 
 
 cmd_stats(#{header := #{opcode := flush}}) ->
-    mcd_stats:guage(cmd_flush);
+    mcd_stat:gauge(cmd_flush);
+
 cmd_stats(_) ->
     ok.

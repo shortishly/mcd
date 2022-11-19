@@ -13,7 +13,7 @@
 %% limitations under the License.
 
 
--module(mcd_listener).
+-module(mcd_tcp_listener).
 
 
 -export([callback_mode/0]).
@@ -56,13 +56,21 @@ init([Arg]) ->
 callback_mode() ->
     handle_event_function.
 
+
 handle_event(internal,
              callback_init,
              _,
-             #{arg := #{callback := Module}} = Data) ->
+             #{requests := Requests,
+               arg := #{callback := Module}} = Data) ->
     case Module:init([]) of
         {ok, CallbackData} ->
-            {keep_state, Data#{callback_data => CallbackData}};
+            {keep_state,
+             Data#{callback_data => CallbackData,
+                   requests := gen_statem:send_request(
+                                 mcd_reaper,
+                                 {callback, #{data => CallbackData}},
+                                 reaper,
+                                 Requests)}};
 
         stop ->
             stop;
@@ -76,7 +84,7 @@ handle_event(internal,
              _,
              #{callback_data := CallbackData,
                arg := #{callback := Module}}) ->
-    {ok, _} = mcd_connection_sup:start_child(
+    {ok, _} = mcd_tcp_connection_sup:start_child(
                 #{socket => Connection,
                   callback => #{data => CallbackData,
                                 module => Module}}),
@@ -124,7 +132,25 @@ handle_event(internal, listen, _, #{socket := Listener}) ->
 handle_event(internal, open, _, Data) ->
     case socket:open(inet, stream, tcp) of
         {ok, Listener} ->
-            {keep_state, Data#{socket => Listener}, nei(bind)};
+            {keep_state,
+             Data#{socket => Listener},
+             [nei({setopt,
+                   #{level => socket,
+                     option => reuseaddr,
+                     value => true}}),
+              nei(bind)]};
+
+        {error, Reason} ->
+            {stop, Reason}
+    end;
+
+handle_event(internal,
+             {setopt, #{level := Level, option := Option, value := Value}},
+             _,
+             #{socket := Socket}) ->
+    case socket:setopt(Socket, {Level, Option}, Value) of
+        ok ->
+            keep_state_and_data;
 
         {error, Reason} ->
             {stop, Reason}
@@ -140,4 +166,18 @@ handle_event(internal, bind, _, #{socket := Listener} = Data) ->
 
         {error, Reason} ->
             {stop, Reason}
+    end;
+
+handle_event(info, Msg, _, #{requests := Existing} = Data) ->
+    case gen_statem:check_response(Msg, Existing, true) of
+        {{reply, ok}, reaper, Updated} ->
+            {keep_state, Data#{requests := Updated}};
+
+        no_request ->
+            ?LOG_ERROR(#{msg => Msg, data => Data}),
+            keep_state_and_data;
+
+        no_reply ->
+            ?LOG_ERROR(#{msg => Msg, data => Data}),
+            keep_state_and_data
     end.

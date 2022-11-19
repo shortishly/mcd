@@ -33,17 +33,18 @@ init([]) ->
 
 
 configuration() ->
-    {#{intensity => 5}, children()}.
+    {#{}, children()}.
 
 
 children() ->
+    Callback = mcd_config:protocol(callback),
+
     [worker(mcd_opcode),
      worker(mcd_status),
      worker(mcd_stat),
-     worker(#{m => mcd_listener,
-              args => [#{callback => mcd_config:connection(
-                                       callback)}]}),
-     supervisor(mcd_connection_sup)].
+     worker(#{m => mcd_reaper, args => [#{callback => Callback}]}),
+     supervisor(#{m => mcd_tcp_sup, args => [#{callback => Callback}]}),
+     supervisor(#{m => mcd_udp_sup, args => [#{callback => Callback}]})].
 
 
 worker(Arg) ->

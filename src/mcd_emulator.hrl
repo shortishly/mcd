@@ -13,35 +13,13 @@
 %% limitations under the License.
 
 
--module(mcd_util).
-
-
--export([max/1]).
--export([min/1]).
--export([snake_case/1]).
-
-
-snake_case([_ | _] = Labels) ->
-    list_to_atom(lists:concat(lists:join("_", Labels))).
-
-
-min(int8) -> -128;
-min(int16) -> -32_768;
-min(int32) -> -2_147_483_648;
-min(int64) -> -9_223_372_036_854_775_808;
-
-min(uint8) -> 0;
-min(uint16) -> 0;
-min(uint32) -> 0;
-min(uint64) -> 0.
-
-
-max(int8) -> 127;
-max(int16) -> 32_767;
-max(int32) -> 2_147_483_647;
-max(int64) -> 9_223_372_036_854_775_807;
-
-max(uint8) -> 255;
-max(uint16) -> 65_535;
-max(uint32) -> 4_294_967_295;
-max(uint64) -> 18_446_744_073_709_551_615.
+-record(entry,
+        {key :: undefined | iodata(),
+         flags :: undefined | integer(),
+         expiry :: undefined | integer(),
+         data = <<>> :: iodata() | integer(),
+         created = erlang:monotonic_time() :: integer(),
+         touched = erlang:monotonic_time() :: integer(),
+         accessed = erlang:monotonic_time() :: integer(),
+         cas = erlang:unique_integer([monotonic, positive]) :: integer(),
+         stale = false :: boolean()}).

@@ -16,7 +16,7 @@
 -module(mcd_config).
 
 
--export([connection/1]).
+-export([protocol/1]).
 -export([maximum/1]).
 -export([memcached/1]).
 -export([socket/1]).
@@ -39,5 +39,5 @@ socket(backlog = Name) ->
     envy(to_integer, [?FUNCTION_NAME, Name], 5).
 
 
-connection(callback = Name) ->
+protocol(callback = Name) ->
     envy(to_atom, [?FUNCTION_NAME, Name]).

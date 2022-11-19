@@ -49,8 +49,8 @@ decode_encode_test_() ->
         "binary/increment-request.terms",
         "binary/increment-response.terms",
 
-        "binary/noop-request.terms",
-        "binary/noop-response.terms",
+        "binary/no-op-request.terms",
+        "binary/no-op-response.terms",
 
         "binary/quit-request.terms",
 
@@ -61,12 +61,19 @@ decode_encode_test_() ->
         "binary/version-request.terms",
         "binary/version-response.terms",
 
+
+        "text/add-noreply-request.terms",
+
         "text/get-request.terms",
         "text/gets-request.terms",
         "text/value-response.terms",
         "text/value-cas-response.terms",
 
         "text/set-request.terms",
+        "text/replace-request.terms",
+        "text/append-request.terms",
+        "text/prepend-request.terms",
+
         "text/cas-request.terms",
 
         "text/stored-response.terms",
@@ -80,6 +87,12 @@ decode_encode_test_() ->
 
         "text/decr-request.terms",
         "text/decr-noreply-request.terms",
+
+        "text/flush-all-request.terms",
+        "text/flush-all-abs-expiry-request.terms",
+        "text/flush-all-noreply-request.terms",
+
+        "text/ok-response.terms",
 
         "text/incr-request.terms",
         "text/incr-noreply-request.terms",
@@ -102,6 +115,9 @@ decode_encode_test_() ->
         "text/stat-response-text.terms",
         "text/stats-request.terms",
 
+        "text/verbosity-request.terms",
+        "text/verbosity-noreply-request.terms",
+
         "text/meta-debug-request.terms",
         "text/meta-debug-flags-request.terms",
         "text/meta-debug-response.terms",
@@ -111,10 +127,18 @@ decode_encode_test_() ->
         "text/meta-nf-not-found-response.terms",
         "text/meta-ns-not-stored-response.terms",
 
+        "text/meta-delete-request.terms",
+        "text/meta-set-add-request-001.terms",
         "text/meta-set-request-001.terms",
         "text/meta-set-request-002.terms",
-        "text/meta-delete-request.terms",
+
+        "text/meta-no-op-request.terms",
+        "text/meta-no-op-response.terms",
+
+        "text/meta-arithmetic-request-001.terms",
+
         "text/meta-get-request.terms",
+        "text/meta-get-flags-request.terms",
         "text/meta-get-response.terms"])}.
 
 

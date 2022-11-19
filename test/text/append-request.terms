@@ -1,3 +1,4 @@
+%% -*- mode: erlang -*-
 %% Copyright (c) 2022 Peter Morgan <peter.james.morgan@gmail.com>
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,32 +13,5 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 
-
--module(mcd_connection_sup).
-
-
--behaviour(supervisor).
--export([init/1]).
--export([start_child/1]).
--export([start_link/0]).
--import(mcd_sup, [worker/1]).
-
-
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
-
-
-init([]) ->
-    {ok, configuration(children())}.
-
-
-configuration(Children) ->
-    {#{strategy => simple_one_for_one}, Children}.
-
-
-children() ->
-    [worker(#{m => mcd_connection, restart => temporary})].
-
-
-start_child(Arg) ->
-    supervisor:start_child(?MODULE, [Arg]).
+"append foo 0 0 6\r\n".
+"fooval\r\n".

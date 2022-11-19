@@ -58,7 +58,7 @@
                       | ms
                       | md.
 
--type meta_protocol() :: #{command := meta_command(),
+-type meta_protocol() :: #{meta := meta_command(),
                            key := binary(),
                            flags := [meta_flag()]}.
 
@@ -118,7 +118,7 @@
                        | quit
                        | flush
                        | getq
-                       | noop
+                       | no_op
                        | version
                        | getk
                        | getkq

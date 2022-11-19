@@ -59,8 +59,22 @@ gauge(Name) when is_atom(Name) ->
 
 init([Arg]) ->
     process_flag(trap_exit, true),
-    _ = ets:new(?MODULE, [public, named_table]),
+    ets:insert_new(
+      ets:new(?MODULE, [public, named_table]),
+      lists:map(
+        fun
+            (Name) ->
+                {Name,
+                 #{type => gauge, counter => counters:new(1, [])}}
+        end,
+        gauges())),
     {ok, ready, #{arg => Arg}}.
+
+
+gauges() ->
+    [cmd_flush,
+     bytes_read,
+     bytes_written].
 
 
 callback_mode() ->

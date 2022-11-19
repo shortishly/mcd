@@ -33,12 +33,29 @@ SHELL_OPTS = \
 	-s sync \
 	+pc unicode
 
+PLT_APPS = \
+	any \
+	asn1 \
+	compiler \
+	crypto \
+	inets \
+	mnesia \
+	phrase \
+	public_key \
+	runtime_tools \
+	ssl \
+	stdlib \
+	syntax_tools \
+	tools \
+	xmerl
+
 
 dep_beaming = git https://github.com/shortishly/beaming.git
-dep_envy = git ../envy
+dep_envy = git https://github.com/shortishly/envy.git
 dep_phrase = git https://github.com/shortishly/phrase.git
 
 dep_beaming_commit = 0.1.0
+dep_envy_commit = 0.6.0
 dep_phrase_commit = 0.1.0
 
 

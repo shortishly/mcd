@@ -24,7 +24,7 @@
 {16#07, quit}.
 {16#08, flush}.
 {16#09, getq}.
-{16#0a, noop}.
+{16#0a, no_op}.
 {16#0b, version}.
 {16#0c, getk}.
 {16#0d, getkq}.
