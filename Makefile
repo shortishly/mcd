@@ -22,6 +22,8 @@ DEPS = \
 	phrase \
 	recon
 
+BUILD_DEPS += relx
+RELX_TAR = 0
 
 SHELL_DEPS = \
 	beaming \
