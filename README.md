@@ -9,16 +9,16 @@ offering:
 
 - the original text based [standard
   protocol][memcached-protocol-text];
-- a [binary protocol][memcached-protocol-binary];
-- and most recently, a text based [meta
-  protocol][memcached-protocol-meta] which deprecates the binary
-  protocol.
+- the [binary protocol][memcached-protocol-binary];
+- the text based [meta protocol][memcached-protocol-meta] which
+  deprecates the binary protocol.
   
 ![main](https://github.com/shortishly/mcd/actions/workflows/main.yml/badge.svg)
   
 ## Build
 
-[mcd][mcd-github] uses [erlang.mk][erlang-mk] to build:
+[mcd][mcd-github] uses [erlang.mk][erlang-mk] with [Erlang/OTP
+25][erlang-org] to build:
 
 ```shell
 make
@@ -32,6 +32,20 @@ listening on port 11211:
 ```shell
 make shell
 ```
+
+## Docker
+
+To run [mcd][mcd-github] as a docker container:
+
+```shell
+docker run \
+    --pull always \
+    --detach \
+    --publish 11211:11211 \
+    --rm \
+    ghcr.io/shortishly/mcd:0.1.0
+```
+
 
 ## API Example
 
@@ -52,7 +66,6 @@ VALUE foo 0 6
 fooval
 END
 ```
-
 
 
 The implementation uses some recently introduced features of
