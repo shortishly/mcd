@@ -14,6 +14,8 @@ offering:
   protocol][memcached-protocol-meta] which deprecates the binary
   protocol.
   
+![main](https://github.com/shortishly/mcd/actions/workflows/main.yml/badge.svg)
+  
 ## Build
 
 [mcd][mcd-github] uses [erlang.mk][erlang-mk] to build:
