@@ -20,24 +20,33 @@
 -export([maximum/1]).
 -export([memcached/1]).
 -export([socket/1]).
--import(envy, [envy/2]).
--import(envy, [envy/3]).
+-import(envy, [envy/1]).
 
 
 maximum(value_size = Name) ->
-    envy(to_integer, [?FUNCTION_NAME, Name], 1024 * 1024).
+    envy(#{caller => ?MODULE,
+           names => [?FUNCTION_NAME, Name],
+           default => 1024 * 1024}).
 
 
 memcached(port = Name) ->
-    envy(to_integer, [?FUNCTION_NAME, Name], 11211);
+    envy(#{caller => ?MODULE,
+           names => [?FUNCTION_NAME, Name],
+           default => 11211});
 
 memcached(hostname = Name) ->
-    envy(to_list, [?FUNCTION_NAME, Name], "localhost").
+    envy(#{caller => ?MODULE,
+           names => [?FUNCTION_NAME, Name],
+           default => "localhost"}).
 
 
 socket(backlog = Name) ->
-    envy(to_integer, [?FUNCTION_NAME, Name], 5).
+    envy(#{caller => ?MODULE,
+           names => [?FUNCTION_NAME, Name],
+           default => 5}).
 
 
 protocol(callback = Name) ->
-    envy(to_atom, [?FUNCTION_NAME, Name]).
+    envy(#{caller => ?MODULE,
+           type => atom,
+           names =>[?FUNCTION_NAME, Name]}).
