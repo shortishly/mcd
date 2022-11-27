@@ -118,6 +118,8 @@ decode_encode_test_() ->
         "text/verbosity-request.terms",
         "text/verbosity-noreply-request.terms",
 
+        "text/quit-request.terms",
+
         "text/meta-debug-request.terms",
         "text/meta-debug-flags-request.terms",
         "text/meta-debug-response.terms",

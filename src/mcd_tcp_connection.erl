@@ -140,6 +140,9 @@ handle_event(internal,
 handle_event(internal, {recv, <<"stats", _/bytes>> = Command}, _, _) ->
     {keep_state_and_data, nei({decode, Command})};
 
+handle_event(internal, {recv, <<"quit", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
 handle_event(internal, {recv, <<"flush_all", _/bytes>> = Command}, _, _) ->
     {keep_state_and_data, nei({decode, Command})};
 
