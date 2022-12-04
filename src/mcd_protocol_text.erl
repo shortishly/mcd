@@ -18,6 +18,7 @@
 
 -export([decode/2]).
 -export([encode/1]).
+-import(mcd_util, [split/1]).
 -include("mcd.hrl").
 
 
@@ -38,7 +39,7 @@ decode(Command, Remainder)
     decode_retrieval_command(Command, Remainder);
 
 decode(delete, R0) ->
-    [Parameters, Encoded] = string:split(R0, ?RN),
+    [Parameters, Encoded] = split(R0),
 
     {ok, MP} = re:compile("(?<key>[^\\s]+)( (?<noreply>noreply))?"),
     {namelist, NL} = re:inspect(MP, namelist),
@@ -86,11 +87,11 @@ decode(value = Command, R0) ->
 decode(Command, Remainder)
   when Command == client_error;
        Command == server_error ->
-    [Reason, Encoded] = string:split(Remainder, ?RN),
+    [Reason, Encoded] = split(Remainder),
     {#{command => Command, reason => Reason}, Encoded};
 
 decode(touch = Command, Remainder) ->
-    [Parameters, Encoded] = string:split(Remainder, ?RN),
+    [Parameters, Encoded] = split(Remainder),
 
     {ok, MP} = re:compile(
                  "(?<key>[^\\s]+) (?<expiry>[0-9]+)"
@@ -116,7 +117,7 @@ decode(touch = Command, Remainder) ->
     end;
 
 decode(stats = Command, Remainder) ->
-    [CommandLine, Encoded] = string:split(Remainder, ?RN),
+    [CommandLine, Encoded] = split(Remainder),
     {maps:filter(
        fun
            (arg, <<>>) ->
@@ -132,7 +133,7 @@ decode(stats = Command, Remainder) ->
      Encoded};
 
 decode(stat = Command, Remainder) ->
-    [CommandLine, Encoded] = string:split(Remainder, ?RN),
+    [CommandLine, Encoded] = split(Remainder),
     {re_run(
        #{command => Command,
          subject => CommandLine,
@@ -140,7 +141,7 @@ decode(stat = Command, Remainder) ->
      Encoded};
 
 decode(flush_all = Command, Remainder) ->
-    [CommandLine, Encoded] = string:split(Remainder, ?RN),
+    [CommandLine, Encoded] = split(Remainder),
     {re_run(
        #{command => Command,
          subject => CommandLine,
@@ -149,8 +150,12 @@ decode(flush_all = Command, Remainder) ->
                       noreply => fun optional/1}}),
      Encoded};
 
+decode(quit = Command, Remainder) ->
+    [<<>>, Encoded] = split(Remainder),
+    {#{command => Command}, Encoded};
+
 decode(verbosity = Command, Remainder) ->
-    [CommandLine, Encoded] = string:split(Remainder, ?RN),
+    [CommandLine, Encoded] = split(Remainder),
     {re_run(
        #{command => Command,
          subject => CommandLine,
@@ -162,7 +167,7 @@ decode(verbosity = Command, Remainder) ->
 decode(Command, Remainder)
   when Command == incr;
        Command == decr ->
-    [Parameters, Encoded] = string:split(Remainder, ?RN),
+    [Parameters, Encoded] = split(Remainder),
 
     {ok, MP} = re:compile(
                  "(?<key>[^\\s]+) (?<value>[0-9]+)"
@@ -194,7 +199,7 @@ decode_storage_command(Command, Remainder)
        Command == replace;
        Command == append;
        Command == prepend ->
-    [CommandLine, DataBlock] = string:split(Remainder, ?RN),
+    [CommandLine, DataBlock] = split(Remainder),
     #{bytes := Size} =
         Decoded =
         re_run(
@@ -214,7 +219,7 @@ decode_storage_command(Command, Remainder)
     end;
 
 decode_storage_command(cas = Command, Remainder) ->
-    [CommandLine, DataBlock] = string:split(Remainder, ?RN),
+    [CommandLine, DataBlock] = split(Remainder),
     #{bytes := Size} = Decoded = re_run(
                                    #{command => Command,
                                      subject => CommandLine,
@@ -244,7 +249,7 @@ optional_binary_to_integer(Default) when is_integer(Default) ->
 
 decode_retrieval_command(Command, Remainder)
   when Command == get; Command == gets ->
-    case string:split(Remainder, ?RN) of
+    case split(Remainder) of
         [Keys, Encoded] ->
             {#{command => Command,
                keys => string:split(string:trim(Keys), <<" ">>, all)},
@@ -256,7 +261,7 @@ decode_retrieval_command(Command, Remainder)
 
 decode_retrieval_command(Command, Remainder)
   when Command == gat; Command == gats ->
-    [CommandLine, Encoded] = string:split(Remainder, ?RN),
+    [CommandLine, Encoded] = split(Remainder),
     {re_run(#{command => Command,
               subject => CommandLine,
               re => "(?<expiry>[0-9]+)\\s(?<keys>([^\\s]+\\s*)+)",
@@ -306,7 +311,8 @@ re_run(#{subject := Subject, re := RE} = Arg) ->
 encode(#{command := ok = Command}) ->
     [string:uppercase(atom_to_list(Command)), ?RN];
 
-encode(#{command := stats = Command}) ->
+encode(#{command := Command}) when Command == stats;
+                                   Command == quit ->
     [atom_to_list(Command), ?RN];
 
 encode(#{command := stat = Command,

@@ -19,10 +19,16 @@
 -export([max/1]).
 -export([min/1]).
 -export([snake_case/1]).
+-export([split/1]).
+-include("mcd.hrl").
 
 
 snake_case([_ | _] = Labels) ->
     list_to_atom(lists:concat(lists:join("_", Labels))).
+
+
+split(S) ->
+  string:split(S, ?RN).
 
 
 min(int8) -> -128;

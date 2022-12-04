@@ -67,6 +67,9 @@ decode(<<"stats", Remainder/bytes>>) ->
 decode(<<"stat", Remainder/bytes>>) ->
     mcd_protocol_text:decode(stat, Remainder);
 
+decode(<<"quit", Remainder/bytes>>) ->
+    mcd_protocol_text:decode(quit, Remainder);
+
 decode(<<"flush_all", Remainder/bytes>>) ->
     mcd_protocol_text:decode(flush_all, Remainder);
 
