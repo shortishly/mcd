@@ -4,7 +4,7 @@ on:
     branches:
       - main
       - develop
-    tags-ignore:
+    tags:
       - '[0-9]+.[0-9]+.[0-9]+'
 jobs:
   build:
@@ -12,5 +12,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: 25.1
       - name: Build
         run: make deps app dialyze eunit
+      - name: Beam Docker Release
+        uses: shortishly/beam-docker-release-action@v1.22
+        with:
+          registry: ghcr.io
+          username: ${{github.actor}}
+          password: ${{secrets.GITHUB_TOKEN}}
+          build-image: erlang:25.1
+          build-platforms: linux/amd64
+          build-tags: ghcr.io/${{github.repository}}:${{github.ref_name}}
