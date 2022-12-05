@@ -18,7 +18,7 @@ jobs:
       - name: Build
         run: make deps app dialyze eunit
       - name: Beam Docker Release
-        uses: shortishly/beam-docker-release-action@v1.22
+        uses: shortishly/beam-docker-release-action@v1.24
         with:
           registry: ghcr.io
           username: ${{github.actor}}
