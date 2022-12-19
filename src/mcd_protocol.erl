@@ -121,45 +121,6 @@ decode(<<"touch ", Remainder/bytes>>) ->
 decode(<<"VALUE ", Remainder/bytes>>) ->
     mcd_protocol_text:decode(value, Remainder);
 
-decode(<<"ma ", Remainder/bytes>>) ->
-    mcd_protocol_meta:decode(arithmetic, Remainder);
-
-decode(<<"me ", Remainder/bytes>>) ->
-    mcd_protocol_meta:decode(debug, Remainder);
-
-decode(<<"ME ", Remainder/bytes>>) ->
-    mcd_protocol_meta:decode(debug_reply, Remainder);
-
-decode(<<"mg ", Remainder/bytes>>) ->
-    mcd_protocol_meta:decode(get, Remainder);
-
-decode(<<"mn", Remainder/bytes>>) ->
-    mcd_protocol_meta:decode(no_op, Remainder);
-
-decode(<<"ms ", Remainder/bytes>>) ->
-    mcd_protocol_meta:decode(set, Remainder);
-
-decode(<<"md ", Remainder/bytes>>) ->
-    mcd_protocol_meta:decode(delete, Remainder);
-
-decode(<<"VA ", Remainder/bytes>>) ->
-    mcd_protocol_meta:decode(value, Remainder);
-
-decode(<<"HD ", Remainder/bytes>>) ->
-    mcd_protocol_meta:decode(head, Remainder);
-
-decode(<<"NS ", Remainder/bytes>>) ->
-    mcd_protocol_meta:decode(not_stored, Remainder);
-
-decode(<<"EX ", Remainder/bytes>>) ->
-    mcd_protocol_meta:decode(exists, Remainder);
-
-decode(<<"NF ", Remainder/bytes>>) ->
-    mcd_protocol_meta:decode(not_found, Remainder);
-
-decode(<<"MN", Remainder/bytes>>) ->
-    mcd_protocol_meta:decode(no_op_reply, Remainder);
-
 decode(<<"CLIENT_ERROR ", Remainder/bytes>>) ->
     mcd_protocol_text:decode(client_error, Remainder);
 
@@ -193,6 +154,45 @@ decode(<<"END\r\n", Remainder/bytes>>) ->
 decode(<<"DELETED\r\n", Remainder/bytes>>) ->
     {#{command => deleted}, Remainder};
 
+decode(<<"ma ", Remainder/bytes>>) ->
+    mcd_protocol_meta:decode(arithmetic, Remainder);
+
+decode(<<"me ", Remainder/bytes>>) ->
+    mcd_protocol_meta:decode(debug, Remainder);
+
+decode(<<"ME ", Remainder/bytes>>) ->
+    mcd_protocol_meta:decode(debug_reply, Remainder);
+
+decode(<<"mg ", Remainder/bytes>>) ->
+    mcd_protocol_meta:decode(get, Remainder);
+
+decode(<<"mn", Remainder/bytes>>) ->
+    mcd_protocol_meta:decode(no_op, Remainder);
+
+decode(<<"ms ", Remainder/bytes>>) ->
+    mcd_protocol_meta:decode(set, Remainder);
+
+decode(<<"md ", Remainder/bytes>>) ->
+    mcd_protocol_meta:decode(delete, Remainder);
+
+decode(<<"VA ", Remainder/bytes>>) ->
+    mcd_protocol_meta:decode(value, Remainder);
+
+decode(<<"HD", Remainder/bytes>>) ->
+    mcd_protocol_meta:decode(head, Remainder);
+
+decode(<<"NS", Remainder/bytes>>) ->
+    mcd_protocol_meta:decode(not_stored, Remainder);
+
+decode(<<"EX", Remainder/bytes>>) ->
+    mcd_protocol_meta:decode(exists, Remainder);
+
+decode(<<"NF", Remainder/bytes>>) ->
+    mcd_protocol_meta:decode(not_found, Remainder);
+
+decode(<<"MN", Remainder/bytes>>) ->
+    mcd_protocol_meta:decode(no_op_reply, Remainder);
+
 decode(<<"EN\r\n", Remainder/bytes>>) ->
     {#{meta => miss}, Remainder};
 
@@ -213,6 +213,9 @@ decode(Arg) ->
     ?LOG_ERROR(#{arg => Arg}),
     error(client_error).
 
+
+encode(L) when is_list(L) ->
+    lists:map(fun encode/1, L);
 
 encode(#{meta := _} = Arg) ->
     mcd_protocol_meta:encode(Arg);
