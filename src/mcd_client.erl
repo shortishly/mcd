@@ -79,7 +79,10 @@ handle_event({call, _}, {send, _}, {busy, _}, _) ->
     {keep_state_and_data, postpone};
 
 handle_event({call, From}, {send, _} = Send, connected, Data) ->
-    {next_state, {busy, From}, Data#{replies => []}, nei(Send)};
+    {next_state,
+     {busy, From},
+     Data#{replies => []},
+     nei(Send)};
 
 handle_event(internal, open, connecting, Data) ->
     case socket:open(inet, stream, default) of
@@ -90,14 +93,37 @@ handle_event(internal, open, connecting, Data) ->
             {stop, Reason}
     end;
 
-handle_event(internal, {send, Decoded}, {busy, _}, #{socket := Socket}) ->
+handle_event(internal,
+             {send, Decoded},
+             {busy, _},
+             #{socket := Socket}) when is_list(Decoded) ->
     case socket:send(Socket, mcd_protocol:encode(Decoded)) of
         ok ->
-            keep_state_and_data;
+            {keep_state_and_data,
+             nei({reply_expected, mcd_protocol:reply_expected(Decoded)})};
 
         {error, Reason} ->
             {stop, Reason}
     end;
+
+handle_event(internal, {send, Decoded}, {busy, _}, #{socket := Socket}) ->
+    case socket:send(Socket, mcd_protocol:encode(Decoded)) of
+        ok ->
+            {keep_state_and_data,
+             nei({reply_expected, mcd_protocol:reply_expected([Decoded])})};
+
+        {error, Reason} ->
+            {stop, Reason}
+    end;
+
+handle_event(internal, {reply_expected, []}, {busy, From}, Data) ->
+    {next_state,
+     connected,
+     maps:without([replies], Data),
+     {reply, From, ok}};
+
+handle_event(internal, {reply_expected, ReplyExpected}, {busy, _}, Data) ->
+    {keep_state, Data#{reply_expected => ReplyExpected}};
 
 handle_event(internal,
              recv,
@@ -297,6 +323,9 @@ handle_event(internal, {recv, <<"ms", _/bytes>> = Command}, _, _) ->
 handle_event(internal, {recv, <<>>}, _, _) ->
     keep_state_and_data;
 
+handle_event(internal, {decode, <<>>}, _, _) ->
+    keep_state_and_data;
+
 handle_event(internal, {decode, Encoded}, _, _) ->
     {keep_state_and_data, nei({message, mcd_protocol:decode(Encoded)})};
 
@@ -324,50 +353,41 @@ handle_event(internal,
              #{replies := Replies} = Data) ->
     {next_state,
      connected,
-     maps:without([replies], Data),
+     maps:without([replies, reply_expected], Data),
      {reply, From, lists:reverse([Decoded | Replies])}};
 
 
 handle_event(internal,
-             {message, {#{command := value} = Decoded, <<>>}},
+             {message, {#{command := value} = Decoded, Encoded}},
              {busy, _},
              #{replies := Replies} = Data) ->
-    {keep_state, Data#{replies := [Decoded | Replies]}};
+    {keep_state, Data#{replies := [Decoded | Replies]}, nei({decode, Encoded})};
 
 handle_event(internal,
              {message, {Decoded, <<>>}},
              {busy, From},
-             #{replies := []} = Data) ->
+             #{replies := [], reply_expected := [_]} = Data) ->
     {next_state,
      connected,
-     maps:without([replies], Data),
+     maps:without([replies, reply_expected], Data),
      {reply, From, Decoded}};
 
 handle_event(internal,
              {message, {Decoded, <<>>}},
              {busy, From},
-             #{replies := Replies} = Data) ->
+             #{replies := Replies, reply_expected := [_]} = Data) ->
     {next_state,
      connected,
-     maps:without([replies], Data),
+     maps:without([replies, reply_expected], Data),
      {reply, From, lists:reverse([Decoded | Replies])}};
 
 handle_event(internal,
-             {message, {#{} = Decoded, Encoded}},
+             {message, {Decoded, Encoded}},
              {busy, _},
-             #{replies := Replies} = Data) ->
+             #{replies := Replies, reply_expected := [_ | T]} = Data) ->
     {keep_state,
-     Data#{replies := [Decoded | Replies]},
+     Data#{replies := [Decoded | Replies], reply_expected := T},
      nei({decode, Encoded})};
-
-handle_event(internal,
-             {message, Decoded},
-             {busy, From},
-             #{replies := Replies} = Data) ->
-    {next_state,
-     connected,
-     maps:without([replies], Data),
-     {reply, From, lists:reverse([Decoded | Replies])}};
 
 handle_event(internal, connect, connecting, #{socket := Socket} = Data) ->
     case socket:connect(

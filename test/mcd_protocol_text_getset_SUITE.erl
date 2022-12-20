@@ -297,36 +297,39 @@ cas_stored_with_correct_unique_test(Config) ->
            noreply => false,
            data => Value})).
 
-%% pipeline_test(Config) ->
-%%     Key = alpha(5),
-%%     Value = alpha(5),
-%%     Flags = 0,
+pipeline_test(Config) ->
+    Key = alpha(5),
+    Value = alpha(5),
+    Flags = 0,
 
-%%     ?assertMatch(
-%%        #{command := stored},
-%%        send_sync(
-%%          Config,
-%%          [#{command => set,
-%%             key => Key,
-%%             flags => Flags,
-%%             expiry => 0,
-%%             noreply => false,
-%%             data => Value},
+    ?assertMatch(
+       [#{command := stored},
+        #{command := deleted},
+        #{command := stored},
+        #{command := deleted}],
+       send_sync(
+         Config,
+         [#{command => set,
+            key => Key,
+            flags => Flags,
+            expiry => 0,
+            noreply => false,
+            data => Value},
 
-%%           #{command => delete,
-%%             key => Key,
-%%             noreply => false},
+          #{command => delete,
+            key => Key,
+            noreply => false},
 
-%%           #{command => set,
-%%             key => Key,
-%%             flags => Flags,
-%%             expiry => 0,
-%%             noreply => false,
-%%             data => Value},
+          #{command => set,
+            key => Key,
+            flags => Flags,
+            expiry => 0,
+            noreply => false,
+            data => Value},
 
-%%           #{command => delete,
-%%             key => Key,
-%%             noreply => false}])).
+          #{command => delete,
+            key => Key,
+            noreply => false}])).
 
 
 send_sync(Config, Data) ->

@@ -18,6 +18,8 @@
 
 -export([decode/1]).
 -export([encode/1]).
+-export([expected_reply_count/1]).
+-export([reply_expected/1]).
 -include("mcd.hrl").
 -include_lib("kernel/include/logger.hrl").
 
@@ -225,3 +227,32 @@ encode(#{command := _} = Arg) ->
 
 encode(#{header := #{opcode := _}} = Arg) ->
     mcd_protocol_binary:encode(Arg).
+
+
+expected_reply_count(L) when is_list(L) ->
+    lists:sum(
+      lists:map(
+        fun expected_reply_count/1,
+        L));
+
+expected_reply_count(#{header := _} = Arg) ->
+    mcd_protocol_binary:?FUNCTION_NAME(Arg);
+
+expected_reply_count(#{command := _} = Arg) ->
+    mcd_protocol_text:?FUNCTION_NAME(Arg);
+
+expected_reply_count(#{meta := _} = Arg) ->
+    mcd_protocol_meta:?FUNCTION_NAME(Arg).
+
+
+reply_expected(L) when is_list(L) ->
+    lists:filter(fun ?FUNCTION_NAME/1, L);
+
+reply_expected(#{command := _, noreply := Noreply}) ->
+    not(Noreply);
+
+reply_expected(#{meta := _, flags := Flags}) ->
+    not(lists:member(noreply, Flags));
+
+reply_expected(#{}) ->
+    true.

@@ -18,6 +18,7 @@
 
 -export([decode/2]).
 -export([encode/1]).
+-export([expected_reply_count/1]).
 -include("mcd.hrl").
 
 
@@ -205,3 +206,16 @@ data_line(#{datalen := Length} = Decoded, DataLine) ->
         _ ->
             partial
     end.
+
+
+expected_reply_count(#{flags := Flags}) ->
+    case lists:member(noreply, Flags) of
+        true ->
+            0;
+
+        false ->
+            1
+    end;
+
+expected_reply_count(#{}) ->
+    1.

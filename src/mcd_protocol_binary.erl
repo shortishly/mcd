@@ -18,6 +18,7 @@
 
 -export([decode/1]).
 -export([encode/1]).
+-export([expected_reply_count/1]).
 -include("mcd.hrl").
 
 
@@ -577,3 +578,7 @@ marshal(Magic,
      Extra,
      Key,
      Value].
+
+
+expected_reply_count(_Arg) ->
+    1.
