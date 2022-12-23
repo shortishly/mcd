@@ -216,6 +216,28 @@ recv(#{message := #{command := get, keys := Keys},
        [{encode, 'end'}],
        Keys)};
 
+recv(#{message := #{command := Command, expiry := Expiry, keys := Keys},
+       data := #{table := Table}}) when Command == gat; Command == gats ->
+    {continue,
+     lists:foldl(
+       fun
+           (Key, A) ->
+               case ets:lookup(Table, Key) of
+                   [#entry{flags = Flags, expiry = Expiry, data = Data}] ->
+                       [{encode,
+                         #{command => value,
+                           key => Key,
+                           flags => Flags,
+                           expiry => Expiry,
+                           data => Data}} | A];
+
+                   [] ->
+                       A
+               end
+       end,
+       [{encode, 'end'}],
+       Keys)};
+
 recv(#{message := #{command := gets, keys := Keys},
        data := #{table := Table}}) ->
     {continue,

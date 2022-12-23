@@ -13,7 +13,7 @@
 %% limitations under the License.
 
 
--module(mcd_protocol_text_cas_SUITE).
+-module(mcd_protocol_text_binary_get_SUITE).
 
 
 -compile(export_all).
@@ -40,109 +40,9 @@ end_per_suite(Config) ->
     ok = application:stop(mcd).
 
 
-set_test(Config) ->
-    Key = alpha(5),
-    Value = alpha(5),
-    Flags = 0,
-
-    ?assertMatch(
-       #{command := 'end'},
-       send_sync(
-         Config,
-         #{command => get,
-           keys => [Key]})),
-
-    ?assertMatch(
-       #{command := stored},
-       send_sync(
-         Config,
-         #{command => set,
-           key => Key,
-           flags => Flags,
-           expiry => 0,
-           noreply => false,
-           data => Value})),
-
-
-    ?assertMatch(
-       [#{command := value,
-          key := Key,
-          flags := Flags,
-          data := Value},
-        #{command := 'end'}],
-       send_sync(
-         Config,
-         #{command => get,
-           keys => [Key]})),
-
-    ?assertMatch(
-       #{command := exists},
-       send_sync(
-         Config,
-         #{command => cas,
-           key => Key,
-           flags => Flags,
-           expiry => 0,
-           unique => 12321,
-           noreply => false,
-           data => Value})),
-
-    [#{command := value,
-       key := Key,
-       cas := CAS,
-       flags := Flags,
-       data := Value},
-     #{command := 'end'}] = send_sync(
-                              Config,
-                              #{command => gets,
-                                keys => [Key]}),
-
-    ?assertMatch(
-       #{command := stored},
-       send_sync(
-         Config,
-         #{command => cas,
-           key => Key,
-           flags => Flags,
-           expiry => 0,
-           unique => CAS,
-           noreply => false,
-           data => Value})),
-
-    ?assertMatch(
-       #{command := exists},
-       send_sync(
-         Config,
-         #{command => cas,
-           key => Key,
-           flags => Flags,
-           expiry => 0,
-           unique => CAS,
-           noreply => false,
-           data => Value})),
-
-    ?assertMatch(
-       #{command := deleted},
-       send_sync(
-         Config,
-         #{command => delete,
-           key => Key,
-           noreply => false})),
-
-    ?assertMatch(
-       #{command := not_found},
-       send_sync(
-         Config,
-         #{command => cas,
-           key => Key,
-           flags => Flags,
-           expiry => 0,
-           unique => CAS,
-           noreply => false,
-           data => Value})).
-
-bug15_test(Config) ->
+mooo_test(Config) ->
     K = alpha(5),
+    V = iolist_to_binary(["mooo", 0]),
     Flags = 0,
 
     ?assertMatch(
@@ -154,39 +54,94 @@ bug15_test(Config) ->
            flags => Flags,
            expiry => 0,
            noreply => false,
-           data => "1"})),
+           data => V})),
 
     [#{command := value,
        key := K,
-       cas := CAS1,
        flags := Flags,
-       data := <<"1">>},
+       data := V},
      #{command := 'end'}] = send_sync(
                               Config,
-                              #{command => gets,
-                                keys => [K]}),
+                              #{command => get,
+                                keys => [K]}).
+
+
+mumble_test(Config) ->
+    K = alpha(5),
+    V = iolist_to_binary(["mumble", 0, 0, 0, 0, "\r\r", "blarg"]),
+    Flags = 0,
 
     ?assertMatch(
-       #{command := incrdecr,
-         value := 2},
+       #{command := stored},
        send_sync(
          Config,
-         #{command => incr,
+         #{command => set,
            key => K,
+           flags => Flags,
+           expiry => 0,
            noreply => false,
-           value => 1})),
+           data => V})),
 
     [#{command := value,
        key := K,
-       cas := CAS2,
        flags := Flags,
-       data := <<"2">>},
+       data := V},
      #{command := 'end'}] = send_sync(
                               Config,
-                              #{command => gets,
-                                keys => [K]}),
-    ?assertNotEqual(CAS1, CAS2).
+                              #{command => get,
+                                keys => [K]}).
 
+
+zero_test(Config) ->
+    K = alpha(5),
+    V = <<0>>,
+    Flags = 0,
+
+    ?assertMatch(
+       #{command := stored},
+       send_sync(
+         Config,
+         #{command => set,
+           key => K,
+           flags => Flags,
+           expiry => 0,
+           noreply => false,
+           data => V})),
+
+    [#{command := value,
+       key := K,
+       flags := Flags,
+       data := V},
+     #{command := 'end'}] = send_sync(
+                              Config,
+                              #{command => get,
+                                keys => [K]}).
+
+
+carriage_return_test(Config) ->
+    K = alpha(5),
+    V = <<"\r">>,
+    Flags = 0,
+
+    ?assertMatch(
+       #{command := stored},
+       send_sync(
+         Config,
+         #{command => set,
+           key => K,
+           flags => Flags,
+           expiry => 0,
+           noreply => false,
+           data => V})),
+
+    [#{command := value,
+       key := K,
+       flags := Flags,
+       data := V},
+     #{command := 'end'}] = send_sync(
+                              Config,
+                              #{command => get,
+                                keys => [K]}).
 
 
 send_sync(Config, Data) ->
@@ -198,7 +153,6 @@ send_sync(Config, Data) ->
                            data => Data})),
 
     Reply.
-
 
 request(Opcode) ->
     #{meta => Opcode}.

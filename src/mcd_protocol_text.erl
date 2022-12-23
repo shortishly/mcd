@@ -165,6 +165,15 @@ decode(verbosity = Command, Remainder) ->
                       noreply => fun optional/1}}),
      Encoded};
 
+decode(incrdecr = Command, Remainder) ->
+    [CommandLine, Encoded] = split(Remainder),
+    {re_run(
+       #{command => Command,
+         subject => CommandLine,
+         re => "(?<value>\\d+)",
+         mapping => #{value => fun erlang:binary_to_integer/1}}),
+     Encoded};
+
 decode(Command, Remainder)
   when Command == incr;
        Command == decr ->
@@ -422,10 +431,6 @@ encode(#{command := value,
      ?RN,
      Data,
      ?RN];
-
-
-encode(#{command := value, data := Data} = Arg) when is_integer(Data) ->
-    ?FUNCTION_NAME(Arg#{data := integer_to_binary(Data)});
 
 encode(#{command := value,
          key := Key,

@@ -20,6 +20,7 @@
 -export([encode/1]).
 -export([expected_reply_count/1]).
 -export([reply_expected/1]).
+-import(mcd_util, [split/1]).
 -include("mcd.hrl").
 -include_lib("kernel/include/logger.hrl").
 
@@ -212,8 +213,15 @@ decode(<<Magic:8,
     mcd_protocol_binary:decode(Arg);
 
 decode(Arg) ->
-    ?LOG_ERROR(#{arg => Arg}),
-    error(client_error).
+    [CommandLine, _] = split(Arg),
+    case re:run(CommandLine, "\\d+") of
+        {match, _} ->
+            mcd_protocol_text:decode(incrdecr, Arg);
+
+        nomatch ->
+            ?LOG_ERROR(#{arg => Arg}),
+            error(client_error)
+    end.
 
 
 encode(L) when is_list(L) ->

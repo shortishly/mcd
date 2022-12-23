@@ -323,6 +323,9 @@ handle_event(internal, {recv, <<"ms", _/bytes>> = Command}, _, _) ->
 handle_event(internal, {recv, <<>>}, _, _) ->
     keep_state_and_data;
 
+handle_event(internal, {recv, Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
 handle_event(internal, {decode, <<>>}, _, _) ->
     keep_state_and_data;
 

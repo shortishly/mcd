@@ -13,7 +13,7 @@
 %% limitations under the License.
 
 
--module(mcd_protocol_text_cas_SUITE).
+-module(mcd_protocol_text_flush_all_SUITE).
 
 
 -compile(export_all).
@@ -40,17 +40,10 @@ end_per_suite(Config) ->
     ok = application:stop(mcd).
 
 
-set_test(Config) ->
+flush_all_test(Config) ->
     Key = alpha(5),
     Value = alpha(5),
     Flags = 0,
-
-    ?assertMatch(
-       #{command := 'end'},
-       send_sync(
-         Config,
-         #{command => get,
-           keys => [Key]})),
 
     ?assertMatch(
        #{command := stored},
@@ -62,7 +55,6 @@ set_test(Config) ->
            expiry => 0,
            noreply => false,
            data => Value})),
-
 
     ?assertMatch(
        [#{command := value,
@@ -76,73 +68,24 @@ set_test(Config) ->
            keys => [Key]})),
 
     ?assertMatch(
-       #{command := exists},
+       #{command := ok},
        send_sync(
          Config,
-         #{command => cas,
-           key => Key,
-           flags => Flags,
+         #{command => flush_all,
            expiry => 0,
-           unique => 12321,
-           noreply => false,
-           data => Value})),
-
-    [#{command := value,
-       key := Key,
-       cas := CAS,
-       flags := Flags,
-       data := Value},
-     #{command := 'end'}] = send_sync(
-                              Config,
-                              #{command => gets,
-                                keys => [Key]}),
-
-    ?assertMatch(
-       #{command := stored},
-       send_sync(
-         Config,
-         #{command => cas,
-           key => Key,
-           flags => Flags,
-           expiry => 0,
-           unique => CAS,
-           noreply => false,
-           data => Value})),
-
-    ?assertMatch(
-       #{command := exists},
-       send_sync(
-         Config,
-         #{command => cas,
-           key => Key,
-           flags => Flags,
-           expiry => 0,
-           unique => CAS,
-           noreply => false,
-           data => Value})),
-
-    ?assertMatch(
-       #{command := deleted},
-       send_sync(
-         Config,
-         #{command => delete,
-           key => Key,
            noreply => false})),
 
     ?assertMatch(
-       #{command := not_found},
+       #{command := 'end'},
        send_sync(
          Config,
-         #{command => cas,
-           key => Key,
-           flags => Flags,
-           expiry => 0,
-           unique => CAS,
-           noreply => false,
-           data => Value})).
+         #{command => get,
+           keys => [Key]})).
 
-bug15_test(Config) ->
-    K = alpha(5),
+
+flush_all_t_plus_two_test(Config) ->
+    Key = alpha(5),
+    Value = alpha(5),
     Flags = 0,
 
     ?assertMatch(
@@ -150,43 +93,50 @@ bug15_test(Config) ->
        send_sync(
          Config,
          #{command => set,
-           key => K,
+           key => Key,
            flags => Flags,
            expiry => 0,
            noreply => false,
-           data => "1"})),
-
-    [#{command := value,
-       key := K,
-       cas := CAS1,
-       flags := Flags,
-       data := <<"1">>},
-     #{command := 'end'}] = send_sync(
-                              Config,
-                              #{command => gets,
-                                keys => [K]}),
+           data => Value})),
 
     ?assertMatch(
-       #{command := incrdecr,
-         value := 2},
+       [#{command := value,
+          key := Key,
+          flags := Flags,
+          data := Value},
+        #{command := 'end'}],
        send_sync(
          Config,
-         #{command => incr,
-           key => K,
-           noreply => false,
-           value => 1})),
+         #{command => get,
+           keys => [Key]})),
 
-    [#{command := value,
-       key := K,
-       cas := CAS2,
-       flags := Flags,
-       data := <<"2">>},
-     #{command := 'end'}] = send_sync(
-                              Config,
-                              #{command => gets,
-                                keys => [K]}),
-    ?assertNotEqual(CAS1, CAS2).
+    ?assertMatch(
+       #{command := ok},
+       send_sync(
+         Config,
+         #{command => flush_all,
+           expiry => 2,
+           noreply => false})),
 
+    ?assertMatch(
+       [#{command := value,
+          key := Key,
+          flags := Flags,
+          data := Value},
+        #{command := 'end'}],
+       send_sync(
+         Config,
+         #{command => get,
+           keys => [Key]})),
+
+    timer:sleep(timer:seconds(5)),
+
+    ?assertMatch(
+       #{command := 'end'},
+       send_sync(
+         Config,
+         #{command => get,
+           keys => [Key]})).
 
 
 send_sync(Config, Data) ->

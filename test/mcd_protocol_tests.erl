@@ -184,6 +184,7 @@ decode_encode_test_() ->
         "text/ok-response.terms",
 
         "text/incr-request.terms",
+        "text/incr-response.terms",
         "text/incr-noreply-request.terms",
 
         "text/touch-request.terms",

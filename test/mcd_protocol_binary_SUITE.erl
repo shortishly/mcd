@@ -155,6 +155,16 @@ key_not_found_get_test(Config) ->
        send_sync(Config, request(get, alpha(5)))).
 
 
+%% TODO
+%% key_not_found_replace_test(Config) ->
+%%     ?assertMatch(
+%%        #{header := #{status := key_not_found}},
+%%        send_sync(Config,
+%%                  #{header => header(replace),
+%%                    extra => #{flags => 0, expiration => 0},
+%%                    key => alpha(5)})).
+
+
 request(Header) ->
     #{header => header(Header)}.
 
@@ -203,8 +213,10 @@ pick(N, Pool, A) ->
                    Pool,
                    [lists:nth(rand:uniform(length(Pool)), Pool) | A]).
 
+
 uint(32) ->
-    random(4_294_967_295).
+    random(mcd_util:max(uint32)).
+
 
 random(High) ->
     rand:uniform(High + 1) - 1.
