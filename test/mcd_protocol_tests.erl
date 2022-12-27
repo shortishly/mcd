@@ -157,6 +157,7 @@ decode_encode_test_() ->
         "text/gets-request.terms",
         "text/value-response.terms",
         "text/value-cas-response.terms",
+        "text/value-end-response.terms",
 
         "text/set-request.terms",
         "text/replace-request.terms",
@@ -235,9 +236,25 @@ decode_encode_test_() ->
 
 
 decode_encode(Encoded) ->
-    {Decoded, <<>>} = mcd_protocol:decode(
-                        iolist_to_binary(Encoded)),
-    mcd_protocol:encode(Decoded).
+    case ?FUNCTION_NAME(Encoded, []) of
+        [Decoded] ->
+            Decoded;
+
+        Otherwise ->
+            Otherwise
+    end.
+
+decode_encode(Encoded, A) ->
+    case mcd_protocol:decode(
+           iolist_to_binary(Encoded)) of
+        {Decoded, <<>>} ->
+            lists:reverse([mcd_protocol:encode(Decoded) | A]);
+
+        {Decoded, Remainder} ->
+            ?FUNCTION_NAME(
+               Remainder,
+               [mcd_protocol:encode(Decoded) | A])
+    end.
 
 decode_reply_expected(Encoded) ->
     {Decoded, <<>>} = mcd_protocol:decode(

@@ -28,35 +28,48 @@ run(#{subject := Subject, re := RE} = Arg) ->
            options(Arg)) of
 
         {match, Matches} ->
-            lists:foldl(
-              fun
-                  ({K, V}, A) ->
-                      Key = binary_to_existing_atom(K),
-                      A#{Key => mapping(Key, V, Arg)}
-              end,
-              maps:get(acc0, Arg, maps:with([meta, command], Arg)),
-              lists:zip(NL, Matches));
+            maps:filtermap(
+              mapper(Arg),
+              initial(NL, Matches, Arg));
 
         nomatch ->
             error(client_error)
     end.
 
 
+initial(NL, Matches, Arg) ->
+    maps:merge(
+      maps:get(acc0, Arg, maps:with([command, meta], Arg)),
+      maps:from_list(
+        lists:zip([binary_to_existing_atom(N) || N <- NL], Matches))).
+
+
+mapper(#{mapping := Mapping}) ->
+    fun
+        (K, V) ->
+            case maps:find(K, Mapping) of
+                {ok, Mapper} ->
+                    case erlang:fun_info(Mapper, arity) of
+                        {arity, 1} ->
+                            {true, Mapper(V)};
+
+                        {arity, 2} ->
+                            Mapper(K, V)
+                    end;
+
+                error ->
+                    {true, V}
+            end
+    end;
+
+mapper(_) ->
+    fun
+        (_, V) ->
+            {true, V}
+    end.
+
 options(#{options := Options}) ->
     Options;
 
 options(#{}) ->
     [{capture, all_names, binary}].
-
-
-mapping(K, V, #{mapping := Mapping}) ->
-    case maps:find(K, Mapping) of
-        {ok, Mapper} ->
-            Mapper(V);
-
-        error ->
-            V
-    end;
-
-mapping(_K, V, #{}) ->
-    V.

@@ -40,7 +40,7 @@ end_per_suite(Config) ->
     ok = application:stop(mcd).
 
 
-cache_miss_test_todo(Config) ->
+cache_miss_test(Config) ->
     Key = alpha(5),
 
     ?assertMatch(
@@ -52,7 +52,47 @@ cache_miss_test_todo(Config) ->
            keys => [Key]})).
 
 
-set_with_expiry_get_and_touch_with_cas_test_todo(Config) ->
+set_with_expiry_wait_has_expired_test(Config) ->
+    K1 = alpha(5),
+    V1 = alpha(5),
+    Flags = 0,
+
+    ?assertMatch(
+       #{command := stored},
+       send_sync(
+         Config,
+         #{command => set,
+           key => K1,
+           flags => Flags,
+           expiry => 2,
+           noreply => false,
+           data => V1})),
+
+    K2 = alpha(5),
+    V2 = alpha(5),
+
+    ?assertMatch(
+       #{command := stored},
+       send_sync(
+         Config,
+         #{command => set,
+           key => K2,
+           flags => Flags,
+           expiry => 2,
+           noreply => false,
+           data => V2})),
+
+    timer:sleep(timer:seconds(5)),
+
+    ?assertMatch(
+       #{command := 'end'},
+       send_sync(
+         Config,
+         #{command => gets,
+           keys => [K1, K2]})).
+
+
+set_with_expiry_get_and_touch_with_cas_test(Config) ->
     K1 = alpha(5),
     V1 = alpha(5),
     Flags = 0,
@@ -83,11 +123,110 @@ set_with_expiry_get_and_touch_with_cas_test_todo(Config) ->
            data => V2})),
 
     ?assertMatch(
-       #{command := 'end'},
+       [#{command := value,
+          key := K1,
+          data := V1,
+          cas := _,
+          flags := Flags},
+
+        #{command := value,
+          key := K2,
+          data := V2,
+          cas := _,
+          flags := Flags},
+
+        #{command := 'end'}],
        send_sync(
          Config,
          #{command => gats,
            expiry => 10,
+           keys => [K1, K2]})),
+
+    timer:sleep(timer:seconds(5)),
+
+    ?assertMatch(
+       [#{command := value,
+          key := K1,
+          data := V1,
+          flags := Flags},
+
+        #{command := value,
+          key := K2,
+          data := V2,
+          flags := Flags},
+
+        #{command := 'end'}],
+       send_sync(
+         Config,
+         #{command => gets,
+           keys => [K1, K2]})).
+
+
+set_with_expiry_get_and_touch_without_cas_test(Config) ->
+    K1 = alpha(5),
+    V1 = alpha(5),
+    Flags = 0,
+
+    ?assertMatch(
+       #{command := stored},
+       send_sync(
+         Config,
+         #{command => set,
+           key => K1,
+           flags => Flags,
+           expiry => 2,
+           noreply => false,
+           data => V1})),
+
+    K2 = alpha(5),
+    V2 = alpha(5),
+
+    ?assertMatch(
+       #{command := stored},
+       send_sync(
+         Config,
+         #{command => set,
+           key => K2,
+           flags => Flags,
+           expiry => 2,
+           noreply => false,
+           data => V2})),
+
+    ?assertMatch(
+       [#{command := value,
+          key := K1,
+          data := V1,
+          flags := Flags},
+
+        #{command := value,
+          key := K2,
+          data := V2,
+          flags := Flags},
+
+        #{command := 'end'}],
+       send_sync(
+         Config,
+         #{command => gat,
+           expiry => 10,
+           keys => [K1, K2]})),
+
+    timer:sleep(timer:seconds(5)),
+
+    ?assertMatch(
+       [#{command := value,
+          key := K1,
+          data := V1,
+          flags := Flags},
+
+        #{command := value,
+          key := K2,
+          data := V2,
+          flags := Flags},
+
+        #{command := 'end'}],
+       send_sync(
+         Config,
+         #{command => gets,
            keys => [K1, K2]})).
 
 

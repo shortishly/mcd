@@ -263,17 +263,6 @@ decr_not_found_test(Config) ->
            value => 1})).
 
 
-send_sync(Config, Data) ->
-    Client = ?config(client, Config),
-
-    {reply, Reply} = gen_statem:receive_response(
-                       mcd_client:send(
-                         #{server_ref => Client,
-                           data => Data})),
-
-    Reply.
-
-
 non_numeric_incr_client_error_test(Config) ->
     K = alpha(5),
     V = alpha(5),
@@ -350,6 +339,17 @@ non_numeric_decr_client_error_test(Config) ->
            key => K,
            noreply => false,
            value => 1})).
+
+
+send_sync(Config, Data) ->
+    Client = ?config(client, Config),
+
+    {reply, Reply} = gen_statem:receive_response(
+                       mcd_client:send(
+                         #{server_ref => Client,
+                           data => Data})),
+
+    Reply.
 
 
 request(Opcode) ->

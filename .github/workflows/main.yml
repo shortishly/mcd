@@ -27,7 +27,7 @@ jobs:
       - name: Beam Docker Release
         uses: shortishly/beam-docker-release-action@v1
         with:
-          registry: ghcr.io
+          registry: ${{env.REGISTRY}}
           username: ${{github.actor}}
           password: ${{secrets.GITHUB_TOKEN}}
           build-image: erlang:${{env.OTP_VERSION}}

@@ -182,6 +182,15 @@ handle_event(internal, {recv, <<"replace ", _/bytes>> = Command}, _, _) ->
 handle_event(internal, {recv, <<"delete ", _/bytes>> = Command}, _, _) ->
     {keep_state_and_data, nei({decode, Command})};
 
+handle_event(internal, {recv, <<"gat ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"gats ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"touch ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
 handle_event(internal, {recv, <<"ma ", _/bytes>> = Command}, _, _) ->
     {keep_state_and_data, nei({decode, Command})};
 

@@ -10,8 +10,8 @@ offering:
 - the original text based [standard
   protocol][memcached-protocol-text];
 - the [binary protocol][memcached-protocol-binary];
-- the text based [meta protocol][memcached-protocol-meta] which
-  deprecates the binary protocol.
+- the text based [meta protocol][memcached-protocol-meta] (which
+  also deprecates the binary protocol).
   
 ![main](https://github.com/shortishly/mcd/actions/workflows/main.yml/badge.svg)
   
