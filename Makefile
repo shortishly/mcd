@@ -15,12 +15,13 @@
 #
 PROJECT = mcd
 PROJECT_DESCRIPTION = memcache protocol
-PROJECT_VERSION = 0.1.0
+PROJECT_VERSION = ${shell git describe --tags}
 
 DEPS = \
 	envy \
 	phrase \
-	recon
+	recon \
+	telemetry
 
 BUILD_DEPS += relx
 RELX_TAR = 0
@@ -38,6 +39,7 @@ SHELL_OPTS = \
 PLT_APPS = \
 	any \
 	asn1 \
+	bbmustache \
 	compiler \
 	crypto \
 	inets \
@@ -48,6 +50,8 @@ PLT_APPS = \
 	ssl \
 	stdlib \
 	syntax_tools \
+	systools \
+	telemetry \
 	tools \
 	xmerl
 
@@ -55,10 +59,15 @@ PLT_APPS = \
 dep_beaming = git https://github.com/shortishly/beaming.git
 dep_envy = git https://github.com/shortishly/envy.git
 dep_phrase = git https://github.com/shortishly/phrase.git
+dep_telemetry = git https://github.com/beam-telemetry/telemetry.git
 
 dep_beaming_commit = 0.1.0
 dep_envy_commit = 0.7.2
 dep_phrase_commit = 0.1.0
+dep_telemetry_commit = v1.1.0
 
 
 include erlang.mk
+
+
+app:: rebar.config

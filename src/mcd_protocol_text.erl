@@ -18,7 +18,6 @@
 
 -export([decode/2]).
 -export([encode/1]).
--export([expected_reply_count/1]).
 -import(mcd_util, [split/1]).
 -include("mcd.hrl").
 
@@ -446,18 +445,6 @@ encode(#{command := not_found}) ->
 
 encode(#{command := deleted}) ->
     ["DELETED", ?RN].
-
-
-expected_reply_count(#{noreply := true}) ->
-    0;
-
-expected_reply_count(#{command := Command,
-                   keys := Keys}) when Command == get;
-                                       Command == gets ->
-    1 + length(Keys);
-
-expected_reply_count(#{command := _}) ->
-    1.
 
 
 data_line(#{datalen := Length} = Decoded, DataLine) ->

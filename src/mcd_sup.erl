@@ -39,7 +39,8 @@ configuration() ->
 children() ->
     Callback = mcd_config:protocol(callback),
 
-    [worker(mcd_opcode),
+    [worker(mcd_telemetry),
+     worker(mcd_opcode),
      worker(mcd_status),
      worker(mcd_stat),
      worker(#{m => mcd_reaper, args => [#{callback => Callback}]}),

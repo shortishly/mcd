@@ -80,7 +80,7 @@ handle_event(internal,
     end;
 
 handle_event(internal,
-             {connect, Connection},
+             {connect = EventName, Connection},
              _,
              #{callback_data := CallbackData,
                arg := #{callback := Module}}) ->
@@ -88,16 +88,18 @@ handle_event(internal,
                 #{socket => Connection,
                   callback => #{data => CallbackData,
                                 module => Module}}),
-    keep_state_and_data;
+    {keep_state_and_data, nei({telemetry, EventName, #{count => 1}})};
 
 handle_event(info,
-             {'$socket', Listener, select, Handle},
+             {'$socket', Listener, select = EventName, Handle},
              _,
              #{socket := Listener}) ->
     case socket:accept(Listener, Handle) of
         {ok, Connected} ->
             {keep_state_and_data,
-             [nei({connect, Connected}), nei(accept)]};
+             [nei({telemetry, EventName, #{count => 1}}),
+              nei({connect, Connected}),
+              nei(accept)]};
 
         {select, {select_info, _, _}} ->
             keep_state_and_data;
@@ -107,11 +109,13 @@ handle_event(info,
     end;
 
 
-handle_event(internal, accept, _, #{socket := Listener}) ->
+handle_event(internal, accept = EventName, _, #{socket := Listener}) ->
     case socket:accept(Listener, nowait) of
         {ok, Connected} ->
             {keep_state_and_data,
-             [nei({connect, Connected}), nei(accept)]};
+             [nei({telemetry, EventName, #{count => 1}}),
+              nei({connect, Connected}),
+              nei(accept)]};
 
         {select, {select_info, _, _}} ->
             keep_state_and_data;
@@ -120,24 +124,30 @@ handle_event(internal, accept, _, #{socket := Listener}) ->
             {stop, Reason}
     end;
 
-handle_event(internal, listen, _, #{socket := Listener}) ->
+handle_event(internal, listen = EventName, _, #{socket := Listener}) ->
     case socket:listen(Listener, mcd_config:socket(backlog)) of
         ok ->
-            {keep_state_and_data, nei(accept)};
+            {keep_state_and_data,
+             [nei({telemetry, EventName, #{count => 1}}), nei(accept)]};
 
         {error, Reason} ->
             {stop, Reason}
     end;
 
-handle_event(internal, open, _, Data) ->
+handle_event(internal, open = EventName, _, Data) ->
     case socket:open(inet, stream, tcp) of
         {ok, Listener} ->
             {keep_state,
              Data#{socket => Listener},
-             [nei({setopt,
+             [nei({telemetry,
+                   EventName,
+                   #{count => 1}}),
+
+              nei({setopt,
                    #{level => socket,
                      option => reuseaddr,
                      value => true}}),
+
               nei(bind)]};
 
         {error, Reason} ->
@@ -156,17 +166,47 @@ handle_event(internal,
             {stop, Reason}
     end;
 
-handle_event(internal, bind, _, #{socket := Listener} = Data) ->
-    case socket:bind(Listener,
-                     #{family => inet,
-                       port => mcd_config:memcached(port),
-                       addr => any}) of
+handle_event(internal, bind = EventName, _, _) ->
+    {keep_state_and_data,
+     nei({EventName,
+          #{family => inet,
+            port => mcd_config:memcached(port),
+            addr => any}})};
+
+handle_event(internal,
+             {bind = EventName, Addr},
+             _,
+             #{socket := Listener} = Data) ->
+    case socket:bind(Listener, Addr) of
         ok ->
-            {next_state, ready, Data, nei(listen)};
+            {next_state,
+             ready,
+             Data,
+             [nei({telemetry, EventName, #{count => 1}, Addr}),
+              nei(listen)]};
 
         {error, Reason} ->
             {stop, Reason}
     end;
+
+handle_event(internal,
+             {telemetry, EventName, Measurements},
+             _,
+             _) ->
+    {keep_state_and_data,
+     nei({telemetry, EventName, Measurements, #{}})};
+
+handle_event(internal,
+             {telemetry, EventName, Measurements, Metadata},
+             _,
+             Data) ->
+    ok = telemetry:execute(
+           [mcd, tcp, listener, EventName],
+           Measurements,
+           maps:merge(
+             maps:with([socket], Data),
+             Metadata)),
+    keep_state_and_data;
 
 handle_event(info, Msg, _, #{requests := Existing} = Data) ->
     case gen_statem:check_response(Msg, Existing, true) of

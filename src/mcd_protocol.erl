@@ -18,7 +18,6 @@
 
 -export([decode/1]).
 -export([encode/1]).
--export([expected_reply_count/1]).
 -export([reply_expected/1]).
 -import(mcd_util, [split/1]).
 -include("mcd.hrl").
@@ -235,22 +234,6 @@ encode(#{command := _} = Arg) ->
 
 encode(#{header := #{opcode := _}} = Arg) ->
     mcd_protocol_binary:encode(Arg).
-
-
-expected_reply_count(L) when is_list(L) ->
-    lists:sum(
-      lists:map(
-        fun expected_reply_count/1,
-        L));
-
-expected_reply_count(#{header := _} = Arg) ->
-    mcd_protocol_binary:?FUNCTION_NAME(Arg);
-
-expected_reply_count(#{command := _} = Arg) ->
-    mcd_protocol_text:?FUNCTION_NAME(Arg);
-
-expected_reply_count(#{meta := _} = Arg) ->
-    mcd_protocol_meta:?FUNCTION_NAME(Arg).
 
 
 reply_expected(L) when is_list(L) ->
