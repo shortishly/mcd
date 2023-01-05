@@ -22,6 +22,9 @@
 -include("mcd_emulator.hrl").
 
 
+recv(#{message := #{command := quit}}) ->
+    stop;
+
 recv(#{message := #{command := set,
                     key := Key,
                     data := Data,
