@@ -23,6 +23,7 @@
 -export([start/1]).
 -export([start_link/0]).
 -export([start_link/1]).
+-export([terminate/3]).
 -import(mcd_statem, [nei/1]).
 -include("mcd.hrl").
 -include_lib("kernel/include/inet.hrl").
@@ -371,6 +372,13 @@ handle_event(info, Msg, _, #{requests := Existing} = Data) ->
             ?LOG_ERROR(#{msg => Msg, data => Data}),
             keep_state_and_data
     end.
+
+
+terminate(_Reason, _State, #{arg := #{socket := Socket}}) ->
+    _ = socket:close(Socket);
+
+terminate(_Reason, _State, _Data) ->
+    ok.
 
 
 cmd_stats(#{header := #{opcode := flush}}) ->
