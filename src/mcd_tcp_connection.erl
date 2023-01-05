@@ -92,14 +92,16 @@ handle_event(info,
                partial := Partial} = Data) ->
     case socket:recv(Socket, 0, Handle) of
         {ok, Received} ->
-            mcd_stat:gauge(#{name => bytes_read,
-                             delta => byte_size(Received)}),
-
-            ?LOG_DEBUG(#{received => Received}),
-
             {keep_state,
              Data#{partial := <<>>},
-             [nei({recv, iolist_to_binary([Partial, Received])}), nei(recv)]};
+             [nei({gauge,
+                   #{name => bytes_read,
+                     delta => iolist_size(Received)}}),
+              nei({telemetry,
+                   recv,
+                   #{bytes => iolist_size(Received)}}),
+              nei({recv, iolist_to_binary([Partial, Received])}),
+              nei(recv)]};
 
         {select, {select_info, _, _}} ->
             keep_state_and_data;
@@ -182,6 +184,15 @@ handle_event(internal, {recv, <<"replace ", _/bytes>> = Command}, _, _) ->
 handle_event(internal, {recv, <<"delete ", _/bytes>> = Command}, _, _) ->
     {keep_state_and_data, nei({decode, Command})};
 
+handle_event(internal, {recv, <<"gat ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"gats ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"touch ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
 handle_event(internal, {recv, <<"ma ", _/bytes>> = Command}, _, _) ->
     {keep_state_and_data, nei({decode, Command})};
 
@@ -204,7 +215,7 @@ handle_event(internal, {recv, _}, _, _) ->
     {keep_state_and_data, nei({encode, #{command => error}})};
 
 handle_event(internal,
-             {decode, Encoded},
+             {decode = EventName, Encoded},
              _,
              #{arg := #{callback := #{data := CallbackData}},
                partial := Partial} = Data) ->
@@ -216,6 +227,10 @@ handle_event(internal,
                    recv,
                    [#{message => Decoded,
                       data => CallbackData}]}),
+              nei({telemetry,
+                   EventName,
+                   #{count => 1},
+                   #{message => Decoded}}),
               nei({recv, Remainder})]};
 
         partial ->
@@ -253,15 +268,28 @@ handle_event(internal,
 handle_event(internal, {encode, Command}, _, _) when is_atom(Command) ->
     {keep_state_and_data, nei({encode, #{command => Command}})};
 
-handle_event(internal, {encode, Decoded}, _, _) ->
-    {keep_state_and_data, nei({send, mcd_protocol:encode(Decoded)})};
+handle_event(internal, {encode = EventName, Decoded}, _, _) ->
+    {keep_state_and_data,
+     [nei({telemetry,
+           EventName,
+           #{count => 1},
+           #{message => Decoded}}),
+      nei({send, mcd_protocol:encode(Decoded)})]};
 
-handle_event(internal, {send, Encoded}, _, #{arg := #{socket := Socket}}) ->
+handle_event(internal,
+             {send = EventName, Encoded},
+             _,
+             #{arg := #{socket := Socket}}) ->
     case socket:send(Socket, Encoded) of
         ok ->
-            mcd_stat:gauge(#{name => bytes_written,
-                             delta => iolist_size(Encoded)}),
-            keep_state_and_data;
+            {keep_state_and_data,
+             [nei({gauge,
+                   #{name => bytes_written,
+                     delta => iolist_size(Encoded)}}),
+
+              nei({telemetry,
+                   EventName,
+                   #{bytes => iolist_size(Encoded)}})]};
 
         {error, econnreset} ->
             stop;
@@ -274,20 +302,22 @@ handle_event(internal, {send, Encoded}, _, #{arg := #{socket := Socket}}) ->
     end;
 
 handle_event(internal,
-             recv,
+             recv = EventName,
              _,
              #{arg := #{socket := Socket},
                partial := Partial} = Data) ->
     case socket:recv(Socket, 0, nowait) of
         {ok, Received} ->
-            mcd_stat:gauge(#{name => bytes_read,
-                             delta => byte_size(Received)}),
-
-            ?LOG_DEBUG(#{received => Received}),
-
             {keep_state,
              Data#{partial := <<>>},
-             [nei({recv, iolist_to_binary([Partial, Received])}), nei(recv)]};
+             [nei({gauge,
+                   #{name => bytes_read,
+                     delta => iolist_size(Received)}}),
+              nei({telemetry,
+                   EventName,
+                   #{bytes => iolist_size(Received)}}),
+              nei({recv, iolist_to_binary([Partial, Received])}),
+              nei(recv)]};
 
         {select, {select_info, _, _}} ->
             keep_state_and_data;
@@ -301,6 +331,29 @@ handle_event(internal,
         {error, Reason} ->
             {stop, Reason}
     end;
+
+handle_event(internal,
+             {telemetry, EventName, Measurements},
+             _,
+             _) ->
+    {keep_state_and_data,
+     nei({telemetry, EventName, Measurements, #{}})};
+
+handle_event(internal,
+             {telemetry, EventName, Measurements, Metadata},
+             _,
+             #{arg := #{callback := #{module := M}}}) ->
+    ok = telemetry:execute(
+           [mcd, tcp, connection, EventName],
+           Measurements,
+           maps:merge(
+             #{callback => M},
+             Metadata)),
+    keep_state_and_data;
+
+handle_event(internal, {gauge, Arg}, _, _) ->
+    mcd_stat:gauge(Arg),
+    keep_state_and_data;
 
 handle_event(info, Msg, _, #{requests := Existing} = Data) ->
     case gen_statem:check_response(Msg, Existing, true) of

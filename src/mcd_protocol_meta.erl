@@ -92,7 +92,7 @@ encode(#{meta := set = Meta,
      " ",
      Key,
      " ",
-     integer_to_binary(byte_size(Data)),
+     integer_to_binary(iolist_size(Data)),
      encode_flags(Flags),
      ?RN,
      Data,
@@ -201,7 +201,7 @@ split(S) ->
 data_line(#{datalen := Length} = Decoded, DataLine) ->
     case DataLine of
         <<Data:Length/bytes, ?RN, Encoded/bytes>> ->
-            {Decoded#{data => Data}, Encoded};
+            {maps:without([datalen], Decoded#{data => Data}), Encoded};
         _ ->
             partial
     end.

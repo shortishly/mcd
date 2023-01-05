@@ -38,51 +38,30 @@ decode(Command, Remainder)
        Command == gats ->
     decode_retrieval_command(Command, Remainder);
 
-decode(delete, R0) ->
-    [Parameters, Encoded] = split(R0),
+decode(delete = Command, Remainder) ->
+    [CommandLine, Encoded] = split(Remainder),
+    {mcd_re:run(
+       #{command => Command,
+         subject => CommandLine,
+         re => "(?<key>[^\\s]+)"
+         "( (?<noreply>noreply))?",
+         mapping => #{noreply => fun noreply/1}}),
+     Encoded};
 
-    {ok, MP} = re:compile("(?<key>[^\\s]+)( (?<noreply>noreply))?"),
-    {namelist, NL} = re:inspect(MP, namelist),
-
-    case re:run(Parameters, MP, [{capture, all_names, binary}]) of
-        {match, Matches} ->
-            {lists:foldl(
-               fun
-                   ({<<"noreply">>, Optional}, A) ->
-                       A#{noreply => Optional /= <<>>};
-
-                   ({Name, Value}, A) ->
-                       A#{binary_to_atom(Name) => Value}
-               end,
-               #{command => delete},
-               lists:zip(NL, Matches)),
-             Encoded}
-    end;
-
-decode(value = Command, R0) ->
-    [Key, R1] = string:split(R0, <<" ">>),
-    [Flags, R2] = string:split(R1, <<" ">>),
-    case string:split(R2, <<" ">>) of
-        [R3] ->
-            [DataLength, R4] = string:split(R3, ?RN),
-            Length = binary_to_integer(DataLength),
-            <<Data:Length/bytes, ?RN, Encoded/bytes>> = R4,
-            {#{command => Command,
-               key => Key,
-               flags => binary_to_integer(Flags),
-               data => Data},
-             Encoded};
-
-        [DataLength, R3] ->
-            Length = binary_to_integer(DataLength),
-            [CAS, <<Data:Length/bytes, ?RN, Encoded/bytes>>] = string:split(R3, ?RN),
-            {#{command => Command,
-               key => Key,
-               flags => binary_to_integer(Flags),
-               cas => binary_to_integer(CAS),
-               data => Data},
-            Encoded}
-    end;
+decode(value = Command, Remainder) ->
+    [CommandLine, DataLine] = split(Remainder),
+    data_line(
+      mcd_re:run(
+        #{command => Command,
+          subject => CommandLine,
+          re => "(?<key>[^\\s]+) "
+          "(?<flags>\\d+) "
+          "(?<datalen>\\d+)"
+          "( (?<cas>\\d+))?",
+          mapping => #{flags => fun erlang:binary_to_integer/1,
+                       cas => optional(fun binary_to_integer/1),
+                       datalen => fun erlang:binary_to_integer/1}}),
+      DataLine);
 
 decode(Command, Remainder)
   when Command == client_error;
@@ -91,50 +70,28 @@ decode(Command, Remainder)
     {#{command => Command, reason => Reason}, Encoded};
 
 decode(touch = Command, Remainder) ->
-    [Parameters, Encoded] = split(Remainder),
-
-    {ok, MP} = re:compile(
-                 "(?<key>[^\\s]+) (?<expiry>[0-9]+)"
-                 "( (?<noreply>noreply))?"),
-    {namelist, NL} = re:inspect(MP, namelist),
-
-    case re:run(Parameters, MP, [{capture, all_names, binary}]) of
-        {match, Matches} ->
-            {lists:foldl(
-               fun
-                   ({<<"noreply">>, Optional}, A) ->
-                       A#{noreply => Optional /= <<>>};
-
-                   ({<<"expiry">> = Name, Value}, A) ->
-                       A#{binary_to_atom(Name) => binary_to_integer(Value)};
-
-                   ({Name, Value}, A) ->
-                       A#{binary_to_atom(Name) => Value}
-               end,
-               #{command => Command},
-               lists:zip(NL, Matches)),
-             Encoded}
-    end;
+    [CommandLine, Encoded] = split(Remainder),
+    {mcd_re:run(
+       #{command => Command,
+         subject => CommandLine,
+         re => "(?<key>[^\\s]+) (?<expiry>[0-9]+)"
+         "( (?<noreply>noreply))?",
+         mapping => #{noreply => fun noreply/1,
+                      expiry => fun erlang:binary_to_integer/1}}),
+     Encoded};
 
 decode(stats = Command, Remainder) ->
     [CommandLine, Encoded] = split(Remainder),
-    {maps:filter(
-       fun
-           (arg, <<>>) ->
-               false;
-
-           (_, _) ->
-               true
-       end,
-       re_run(
+    {mcd_re:run(
        #{command => Command,
          subject => CommandLine,
-         re => "(?<arg>\\w+)?"})),
+         re => "(?<arg>\\w+)?",
+         mapping => #{arg => optional()}}),
      Encoded};
 
 decode(stat = Command, Remainder) ->
     [CommandLine, Encoded] = split(Remainder),
-    {re_run(
+    {mcd_re:run(
        #{command => Command,
          subject => CommandLine,
          re => "(?<key>[^\\s]+)\\s+(?<value>.+)"}),
@@ -142,12 +99,12 @@ decode(stat = Command, Remainder) ->
 
 decode(flush_all = Command, Remainder) ->
     [CommandLine, Encoded] = split(Remainder),
-    {re_run(
+    {mcd_re:run(
        #{command => Command,
          subject => CommandLine,
          re => "(\\s+(?<expiry>\\d+))?(\\s+(?<noreply>noreply))?",
          mapping => #{expiry => optional_binary_to_integer(0),
-                      noreply => fun optional/1}}),
+                      noreply => fun noreply/1}}),
      Encoded};
 
 decode(quit = Command, Remainder) ->
@@ -156,12 +113,21 @@ decode(quit = Command, Remainder) ->
 
 decode(verbosity = Command, Remainder) ->
     [CommandLine, Encoded] = split(Remainder),
-    {re_run(
+    {mcd_re:run(
        #{command => Command,
          subject => CommandLine,
          re => "(?<level>\\d+)( (?<noreply>noreply))?",
          mapping => #{level => fun erlang:binary_to_integer/1,
-                      noreply => fun optional/1}}),
+                      noreply => fun noreply/1}}),
+     Encoded};
+
+decode(incrdecr = Command, Remainder) ->
+    [CommandLine, Encoded] = split(Remainder),
+    {mcd_re:run(
+       #{command => Command,
+         subject => CommandLine,
+         re => "(?<value>\\d+)",
+         mapping => #{value => fun erlang:binary_to_integer/1}}),
      Encoded};
 
 decode(Command, Remainder)
@@ -208,7 +174,7 @@ decode_storage_command(Command, Remainder)
             re => "(?<key>[^\\s]+) (?<flags>\\d+) (?<expiry>\\d+) (?<bytes>\\d+)( (?<noreply>noreply))?\\s*",
             mapping => #{flags => fun erlang:binary_to_integer/1,
                          expiry => fun erlang:binary_to_integer/1,
-                         noreply => fun optional/1,
+                         noreply => fun noreply/1,
                          bytes => fun erlang:binary_to_integer/1}}),
     case DataBlock of
         <<Data:Size/bytes, ?RN, Encoded/bytes>> ->
@@ -219,22 +185,37 @@ decode_storage_command(Command, Remainder)
     end;
 
 decode_storage_command(cas = Command, Remainder) ->
-    [CommandLine, DataBlock] = split(Remainder),
-    #{bytes := Size} = Decoded = re_run(
-                                   #{command => Command,
-                                     subject => CommandLine,
-                                     re => "(?<key>[^\\s]+) (?<flags>\\d+) (?<expiry>\\d+) (?<bytes>\\d+) (?<unique>\\d+)( (?<noreply>noreply))?",
-                                     mapping => #{flags => fun erlang:binary_to_integer/1,
-                                                  expiry => fun erlang:binary_to_integer/1,
-                                                  unique => fun erlang:binary_to_integer/1,
-                                                  noreply => fun optional/1,
-                                                  bytes => fun erlang:binary_to_integer/1}}),
-    <<Data:Size/bytes, ?RN, Encoded/bytes>> = DataBlock,
-    {maps:without([bytes], Decoded#{data => Data}), Encoded}.
+    [CommandLine, DataLine] = split(Remainder),
+
+    data_line(
+      mcd_re:run(
+        #{command => Command,
+          subject => CommandLine,
+          re => "(?<key>[^\\s]+) (?<flags>\\d+) (?<expiry>\\d+) (?<datalen>\\d+) (?<unique>\\d+)( (?<noreply>noreply))?",
+          mapping => #{flags => fun erlang:binary_to_integer/1,
+                       expiry => fun erlang:binary_to_integer/1,
+                       unique => fun erlang:binary_to_integer/1,
+                       noreply => fun noreply/1,
+                       datalen => fun erlang:binary_to_integer/1}}),
+      DataLine).
 
 
-optional(Optional) ->
+noreply(Optional) ->
     Optional /= <<>>.
+
+optional() ->
+    ?FUNCTION_NAME(fun identity/1).
+
+identity(X) -> X.
+
+optional(Mapping) when is_function(Mapping) ->
+    fun
+        (_, <<>>) ->
+            false;
+
+        (_, V) ->
+            {true, Mapping(V)}
+    end.
 
 
 optional_binary_to_integer(Default) when is_integer(Default) ->
@@ -422,10 +403,6 @@ encode(#{command := value,
      Data,
      ?RN];
 
-
-encode(#{command := value, data := Data} = Arg) when is_integer(Data) ->
-    ?FUNCTION_NAME(Arg#{data := integer_to_binary(Data)});
-
 encode(#{command := value,
          key := Key,
          flags := Flags,
@@ -468,3 +445,13 @@ encode(#{command := not_found}) ->
 
 encode(#{command := deleted}) ->
     ["DELETED", ?RN].
+
+
+data_line(#{datalen := Length} = Decoded, DataLine) ->
+    case DataLine of
+        <<Data:Length/bytes, ?RN, Encoded/bytes>> ->
+            {maps:without([datalen], Decoded#{data => Data}), Encoded};
+
+        _ ->
+            partial
+    end.

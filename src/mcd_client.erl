@@ -35,7 +35,7 @@ start() ->
 
 
 start(Arg) ->
-    gen_statem:start(?MODULE, [Arg], envy_gen:options(?MODULE)).
+    gen_statem:start(?MODULE, [Arg], []).
 
 
 start_link() ->
@@ -75,36 +75,69 @@ handle_event({call, _}, {send, _}, disconnected, Data) ->
 handle_event({call, _}, {send, _}, connecting, _) ->
     {keep_state_and_data, postpone};
 
-handle_event({call, From}, {send, _} = Send, connected, Data) ->
-    {next_state, {busy, From}, Data, nei(Send)};
+handle_event({call, _}, {send, _}, {busy, _}, _) ->
+    {keep_state_and_data, postpone};
 
-handle_event(internal, open, connecting, Data) ->
+handle_event({call, From}, {send, _} = Send, connected, Data) ->
+    {next_state,
+     {busy, From},
+     Data#{replies => []},
+     nei(Send)};
+
+handle_event(internal, open = EventName, connecting, Data) ->
     case socket:open(inet, stream, default) of
         {ok, Socket} ->
-            {keep_state, Data#{socket => Socket}, nei(connect)};
+            {keep_state,
+             Data#{socket => Socket},
+             [nei({telemetry, EventName, #{count => 1}}),
+              nei(connect)]};
 
         {error, Reason} ->
             {stop, Reason}
     end;
 
-handle_event(internal, {send, Decoded}, {busy, _}, #{socket := Socket}) ->
-    case socket:send(Socket, mcd_protocol:encode(Decoded)) of
+handle_event(internal, {send, #{} = Decoded}, {busy, _}, _) ->
+    {keep_state_and_data, nei({send, [Decoded]})};
+
+handle_event(internal,
+             {send = EventName, Decoded},
+             {busy, _},
+             #{socket := Socket}) ->
+    Encoded = mcd_protocol:encode(Decoded),
+    case socket:send(Socket, Encoded) of
         ok ->
-            {keep_state_and_data, nei(recv)};
+            {keep_state_and_data,
+             [nei({telemetry,
+                   EventName,
+                   #{count => 1,
+                     bytes => iolist_size(Encoded)},
+                   #{messages => Decoded}}),
+              nei({reply_expected, mcd_protocol:reply_expected(Decoded)})]};
 
         {error, Reason} ->
             {stop, Reason}
     end;
+
+handle_event(internal, {reply_expected, []}, {busy, From}, Data) ->
+    {next_state,
+     connected,
+     maps:without([replies], Data),
+     {reply, From, ok}};
+
+handle_event(internal, {reply_expected, ReplyExpected}, {busy, _}, Data) ->
+    {keep_state, Data#{reply_expected => ReplyExpected}};
 
 handle_event(internal,
              recv,
-             {busy, _},
+             _,
              #{socket := Socket, partial := Partial} = Data) ->
     case socket:recv(Socket, 0, nowait) of
         {ok, Received} ->
             {keep_state,
              Data#{partial := <<>>},
-             nei({recv, iolist_to_binary([Partial, Received])})};
+             [nei({telemetry, recv, #{bytes => iolist_size(Received)}}),
+              nei({recv, iolist_to_binary([Partial, Received])}),
+              nei(recv)]};
 
         {select, {select_info, _, _}} ->
             keep_state_and_data;
@@ -115,13 +148,15 @@ handle_event(internal,
 
 handle_event(info,
              {'$socket', Socket, select, Handle},
-             {busy, _},
+             _,
              #{socket := Socket, partial := Partial} = Data) ->
     case socket:recv(Socket, 0, Handle) of
         {ok, Received} ->
             {keep_state,
              Data#{partial := <<>>},
-             nei({recv, iolist_to_binary([Partial, Received])})};
+             [nei({telemetry, recv, #{bytes => iolist_size(Received)}}),
+              nei({recv, iolist_to_binary([Partial, Received])}),
+              nei(recv)]};
 
         {select, {select_info, _, _}} ->
             keep_state_and_data;
@@ -165,14 +200,152 @@ handle_event(internal,
      [nei({decode, <<(binary:part(Encoded, {0, 24}))/bytes, Body/bytes>>}),
       nei({recv, Remainder})]};
 
-handle_event(internal, {decode, Encoded}, _, _) ->
-    {keep_state_and_data, nei({message, mcd_protocol:decode(Encoded)})};
+handle_event(internal, {recv, <<"stats", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"quit", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"flush_all", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"verbosity ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"incr ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"decr ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"set ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"append ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"prepend ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"cas ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"get ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"gets ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"add ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"replace ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"delete ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"gat ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"gats ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"touch ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"EN", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"EX", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"HD", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"NF", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"NOT_FOUND", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"NOT_STORED", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"OK", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"SERVER_ERROR", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"CLIENT_ERROR", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"DELETED", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"END", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"ERROR", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"EXISTS", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"STAT ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"STORED", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"TOUCHED", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"VALUE ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"NS", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"VA", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"ma", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"md ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"me ", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"ME", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"mg", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"mn", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"MN", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {recv, <<"ms", _/bytes>> = Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
 
 handle_event(internal, {recv, <<>>}, _, _) ->
     keep_state_and_data;
 
-handle_event(internal, {recv, Partial}, _, #{partial := <<>>} = Data) ->
-    {keep_state, Data#{partial := Partial}, nei(recv)};
+handle_event(internal, {recv, Command}, _, _) ->
+    {keep_state_and_data, nei({decode, Command})};
+
+handle_event(internal, {decode, <<>>}, _, _) ->
+    keep_state_and_data;
+
+handle_event(internal, {decode, Encoded}, _, _) ->
+    {keep_state_and_data, nei({message, mcd_protocol:decode(Encoded)})};
 
 handle_event(internal,
              {message, #{header := #{opcode := stat,
@@ -181,7 +354,9 @@ handle_event(internal,
                          value := _} = Decoded},
              {busy, _},
              #{replies := Replies} = Data) ->
-    {keep_state, Data#{replies => [Decoded | Replies]}};
+    {keep_state,
+     Data#{replies => [Decoded | Replies]},
+     nei({telemetry, message, #{count => 1}, #{message => Decoded}})};
 
 handle_event(internal,
              {message, #{header := #{opcode := stat,
@@ -189,7 +364,9 @@ handle_event(internal,
                          key := _, value := _} = Decoded},
              {busy, _},
              Data) ->
-    {keep_state, Data#{replies => [Decoded]}};
+    {keep_state,
+     Data#{replies => [Decoded]},
+     nei({telemetry, message, #{count => 1}, #{message => Decoded}})};
 
 handle_event(internal,
              {message, #{header := #{opcode := stat,
@@ -198,21 +375,86 @@ handle_event(internal,
              #{replies := Replies} = Data) ->
     {next_state,
      connected,
-     maps:without([replies], Data),
-     {reply, From, lists:reverse([Decoded | Replies])}};
+     maps:without([replies, reply_expected], Data),
+     [{reply, From, lists:reverse([Decoded | Replies])},
+      nei({telemetry, message, #{count => 1}, #{message => Decoded}})]};
 
-handle_event(internal, {message, Decoded}, {busy, From}, Data) ->
-    {next_state, connected, Data, {reply, From, Decoded}};
 
-handle_event(internal, connect, connecting, #{socket := Socket} = Data) ->
-    case socket:connect(
-           Socket,
-           #{family => inet,
-             port => mcd_config:memcached(port),
-             addr => addr()}) of
+handle_event(internal,
+             {message, {#{command := value} = Decoded, Encoded}},
+             {busy, _},
+             #{replies := Replies} = Data) ->
+    {keep_state,
+     Data#{replies := [Decoded | Replies]},
+     [nei({telemetry, message, #{count => 1}, #{message => Decoded}}),
+      nei({decode, Encoded})]};
 
+handle_event(internal,
+             {message, {Decoded, <<>>}},
+             {busy, From},
+             #{replies := [], reply_expected := [_]} = Data) ->
+    {next_state,
+     connected,
+     maps:without([replies, reply_expected], Data),
+     [{reply, From, Decoded},
+      nei({telemetry, message, #{count => 1}, #{message => Decoded}})]};
+
+handle_event(internal,
+             {message, {Decoded, <<>>}},
+             {busy, From},
+             #{replies := Replies, reply_expected := [_]} = Data) ->
+    {next_state,
+     connected,
+     maps:without([replies, reply_expected], Data),
+     [{reply, From, lists:reverse([Decoded | Replies])},
+      nei({telemetry, message, #{count => 1}, #{message => Decoded}})]};
+
+handle_event(internal,
+             {message, {Decoded, Encoded}},
+             {busy, _},
+             #{replies := Replies, reply_expected := [_ | T]} = Data) ->
+    {keep_state,
+     Data#{replies := [Decoded | Replies], reply_expected := T},
+     [nei({telemetry, message, #{count => 1}, #{message => Decoded}}),
+      nei({decode, Encoded})]};
+
+handle_event(internal,
+             {telemetry, EventName, Measurements},
+             _,
+             _) ->
+    {keep_state_and_data,
+     nei({telemetry, EventName, Measurements, #{}})};
+
+handle_event(internal,
+             {telemetry, EventName, Measurements, Metadata},
+             _,
+             Data) ->
+    ok = telemetry:execute(
+           [mcd, client, EventName],
+           Measurements,
+           maps:merge(
+             maps:with([socket], Data),
+             Metadata)),
+    keep_state_and_data;
+
+handle_event(internal, connect, connecting, _) ->
+    {keep_state_and_data,
+     nei({connect,
+          #{family => inet,
+            port => mcd_config:memcached(port),
+            addr => addr()}})};
+
+handle_event(internal,
+             {connect = EventName, Arg},
+             connecting,
+             #{socket := Socket} = Data) ->
+    case socket:connect(Socket, Arg) of
         ok ->
-            {next_state, connected, Data#{partial => <<>>}};
+            {next_state,
+             connected,
+             Data#{partial => <<>>},
+             [nei({telemetry, EventName, #{count => 1}, Arg}),
+              nei(recv)]};
 
         {error, Reason} ->
             {stop, Reason}

@@ -26,6 +26,7 @@ recv(#{message := #{command := set,
                     key := Key,
                     data := Data,
                     expiry := Expiry,
+                    noreply := Noreply,
                     flags := Flags},
        data := #{table := Table}} = Arg) ->
     ?LOG_DEBUG(Arg),
@@ -44,14 +45,95 @@ recv(#{message := #{command := set,
                               expiry = Expiry,
                               data = Data}),
             {continue,
-             [{encode, stored},
-              {expire, #{key => Key, seconds => Expiry}}]}
+             [{expire,
+               #{key => Key,
+                 seconds => Expiry}} |
+              [{encode, #{command => stored}} || not(Noreply)]]}
+    end;
+
+recv(#{message := #{command := gat,
+                    keys := Keys,
+                    expiry := Expiry},
+       data := #{table := Table}}) ->
+    {continue,
+     lists:foldr(
+       fun
+           (Key, A) ->
+               case ets:lookup(Table, Key) of
+                   [#entry{flags = Flags, data = Data}] ->
+                       [{encode,
+                         #{command => value,
+                           key => Key,
+                           flags => Flags,
+                           data => Data}},
+
+                        {expire,
+                         #{key => Key,
+                           seconds => Expiry}} | A];
+
+                   [] ->
+                       A
+               end
+       end,
+       [{encode, 'end'}],
+       Keys)};
+
+recv(#{message := #{command := gats,
+                    keys := Keys,
+                    expiry := Expiry},
+       data := #{table := Table}}) ->
+    {continue,
+     lists:foldr(
+       fun
+           (Key, A) ->
+               case ets:lookup(Table, Key) of
+                   [#entry{flags = Flags, cas = Unique, data = Data}] ->
+                       [{encode,
+                         #{command => value,
+                           key => Key,
+                           flags => Flags,
+                           cas => Unique,
+                           data => Data}},
+
+                        {expire,
+                         #{key => Key,
+                           seconds => Expiry}} | A];
+
+                   [] ->
+                       A
+               end
+       end,
+       [{encode, 'end'}],
+       Keys)};
+
+recv(#{message := #{command := touch,
+                    key := Key,
+                    expiry := Expiry,
+                    noreply := Noreply},
+       data := #{table := Table}}) ->
+    case ets:update_element(
+           Table,
+           Key,
+           [{#entry.expiry, Expiry},
+            {#entry.touched, erlang:monotonic_time()}]) of
+        true ->
+            {continue,
+             [{expire,
+               #{key => Key,
+                 seconds => Expiry}} |
+              [{encode,
+                #{command => touched}} || not(Noreply)]]};
+
+        false ->
+            {continue,
+             [{encode, #{command => not_found}} || not(Noreply)]}
     end;
 
 recv(#{message := #{command := append,
                     key := Key,
                     data := Data,
                     expiry := Expiry,
+                    noreply := Noreply,
                     flags := Flags},
        data := #{table := Table}} = Arg) ->
     ?LOG_DEBUG(Arg),
@@ -71,17 +153,22 @@ recv(#{message := #{command := append,
              end)) of
         1 ->
             {continue,
-             [{encode, stored},
-              {expire, #{key => Key, seconds => Expiry}}]};
+             [{expire,
+               #{key => Key,
+                 seconds => Expiry}} |
+              [{encode,
+                #{command => stored}} || not(Noreply)]]};
 
         0 ->
-            {continue, {encode, not_found}}
+            {continue,
+             [{encode, #{command => not_stored}} || not(Noreply)]}
     end;
 
 recv(#{message := #{command := prepend,
                     key := Key,
                     data := Data,
                     expiry := Expiry,
+                    noreply := Noreply,
                     flags := Flags},
        data := #{table := Table}} = Arg) ->
     ?LOG_DEBUG(Arg),
@@ -101,11 +188,15 @@ recv(#{message := #{command := prepend,
              end)) of
         1 ->
             {continue,
-             [{encode, stored},
-              {expire, #{key => Key, seconds => Expiry}}]};
+             [{expire,
+               #{key => Key,
+                 seconds => Expiry}} |
+              [{encode,
+                #{command => stored}} || not(Noreply)]]};
 
         0 ->
-            {continue, {encode, not_found}}
+            {continue,
+             [{encode, #{command => not_stored}} || not(Noreply)]}
     end;
 
 recv(#{message := #{command := cas,
@@ -113,6 +204,7 @@ recv(#{message := #{command := cas,
                     data := Data,
                     expiry := Expiry,
                     unique := Expected,
+                    noreply := Noreply,
                     flags := Flags},
        data := #{table := Table}} = Arg) ->
     ?LOG_DEBUG(Arg),
@@ -134,18 +226,26 @@ recv(#{message := #{command := cas,
 
                 1 ->
                     {continue,
-                     [{encode, stored},
-                      {expire, #{key => Key, seconds => Expiry}}]};
+                     [{expire,
+                       #{key => Key,
+                         seconds => Expiry}} |
+                      [{encode, #{command => stored}} || not(Noreply)]]};
 
                 0 ->
-                    {continue, {encode, exists}}
+                    {continue,
+                     [{encode,
+                       #{command => exists}} || not(Noreply)]}
             end;
 
         [#entry{}] ->
-            {continue, {encode, exists}};
+            {continue,
+             [{encode,
+               #{command => exists}} || not(Noreply)]};
 
         [] ->
-            {continue, {encode, not_found}}
+            {continue,
+             [{encode,
+               #{command => not_found}} || not(Noreply)]}
     end;
 
 recv(#{message := #{command := add,
@@ -175,6 +275,7 @@ recv(#{message := #{command := replace,
                     key := Key,
                     data := Data,
                     expiry := Expiry,
+                    noreply := Noreply,
                     flags := Flags},
        data := #{table := Table}} = Arg) ->
     ?LOG_DEBUG(Arg),
@@ -187,26 +288,26 @@ recv(#{message := #{command := replace,
              end)) of
         1 ->
             {continue,
-             [{encode, stored},
-              {expire, #{key => Key, seconds => Expiry}}]};
+             [{expire,
+               #{key => Key,
+                 seconds => Expiry}} | [{encode, stored} || not(Noreply)]]};
 
         0 ->
-            {continue, {encode, not_stored}}
+            {continue, [{encode, not_stored} || not(Noreply)]}
     end;
 
 recv(#{message := #{command := get, keys := Keys},
        data := #{table := Table}}) ->
     {continue,
-     lists:foldl(
+     lists:foldr(
        fun
            (Key, A) ->
                case ets:lookup(Table, Key) of
-                   [#entry{flags = Flags, expiry = Expiry, data = Data}] ->
+                   [#entry{flags = Flags, data = Data}] ->
                        [{encode,
                          #{command => value,
                            key => Key,
                            flags => Flags,
-                           expiry => Expiry,
                            data => Data}} | A];
 
                    [] ->
@@ -224,7 +325,6 @@ recv(#{message := #{command := gets, keys := Keys},
            (Key, A) ->
                case ets:lookup(Table, Key) of
                    [#entry{flags = Flags,
-                           expiry = Expiry,
                            cas = Unique,
                            data = Data}] ->
                        [{encode,
@@ -232,7 +332,6 @@ recv(#{message := #{command := gets, keys := Keys},
                            key => Key,
                            flags => Flags,
                            cas => Unique,
-                           expiry => Expiry,
                            data => Data}} | A];
 
                    [] ->
@@ -242,7 +341,7 @@ recv(#{message := #{command := gets, keys := Keys},
        [{encode, 'end'}],
        Keys)};
 
-recv(#{message := #{command := delete, key := Key, noreply := false},
+recv(#{message := #{command := delete, key := Key, noreply := Noreply},
        data := #{table := Table}}) ->
     case ets:select_delete(
            Table,
@@ -252,10 +351,10 @@ recv(#{message := #{command := delete, key := Key, noreply := false},
                      Candidate == Key
              end)) of
         0 ->
-            {continue, {encode, not_found}};
+            {continue, [{encode, #{command => not_found}}  || not(Noreply)]};
 
         1 ->
-            {continue, {encode, deleted}}
+            {continue, [{encode, #{command => deleted}} || not(Noreply)]}
     end;
 
 %% Text Commands
@@ -299,13 +398,15 @@ recv(#{data := #{table := Table},
                         error:badarg ->
                             {continue,
                              {encode,
-                              #{command => client_error,
+                              [#{command => client_error,
                                 reason =>  "cannot increment or decrement "
-                                "non-numeric value"}}}
+                                "non-numeric value"} || not(Noreply)]}}
                     end;
 
                 [] ->
-                    {continue, {encode, not_found}}
+                    {continue,
+                     {encode,
+                      [#{command => not_found} || not(Noreply)]}}
             end
     end;
 

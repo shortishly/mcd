@@ -19,6 +19,95 @@
 -include_lib("eunit/include/eunit.hrl").
 
 
+decode_reply_expected_test_() ->
+    {setup,
+     fun
+         () ->
+             {ok, Opcode} = mcd_opcode:start_link(),
+             {ok, Status} = mcd_status:start_link(),
+             [Opcode, Status]
+     end,
+     fun
+         (Procs) ->
+             lists:foreach(
+               fun gen_statem:stop/1,
+               Procs)
+     end,
+     lists:map(
+       t(fun decode_reply_expected/1),
+       [{"binary/add-request.terms", true},
+        {"binary/append-request.terms", true},
+        {"binary/delete-request.terms", true},
+
+        {"binary/flush-request.terms", true},
+
+        {"binary/get-request.terms", true},
+        {"binary/increment-request.terms", true},
+
+        {"binary/no-op-request.terms", true},
+
+        {"binary/quit-request.terms", true},
+
+        {"binary/stat-request.terms", true},
+
+        {"binary/version-request.terms", true},
+
+        {"text/add-noreply-request.terms", false},
+
+        {"text/get-request.terms", true},
+        {"text/gets-request.terms", true},
+
+        {"text/set-request.terms", true},
+        {"text/replace-request.terms", true},
+        {"text/append-request.terms", true},
+        {"text/prepend-request.terms", true},
+
+        {"text/cas-request.terms", true},
+
+        {"text/delete-noreply-request.terms", false},
+        {"text/delete-request.terms", true},
+
+        {"text/decr-request.terms", true},
+        {"text/decr-noreply-request.terms", false},
+
+        {"text/flush-all-request.terms", true},
+        {"text/flush-all-abs-expiry-request.terms", true},
+        {"text/flush-all-noreply-request.terms", false},
+
+
+        {"text/incr-request.terms", true},
+        {"text/incr-noreply-request.terms", false},
+
+        {"text/touch-request.terms", true},
+        {"text/touch-noreply-request.terms", false},
+
+        {"text/gat-request.terms", true},
+        {"text/gats-request.terms", true},
+
+
+        {"text/stats-request.terms", true},
+
+        {"text/verbosity-request.terms", true},
+        {"text/verbosity-noreply-request.terms", false},
+
+        {"text/quit-request.terms", true},
+
+        {"text/meta-debug-request.terms", true},
+        {"text/meta-debug-flags-request.terms", true},
+
+        {"text/meta-delete-request.terms", true},
+        {"text/meta-set-add-request-001.terms", true},
+        {"text/meta-set-request-001.terms", true},
+        {"text/meta-set-request-002.terms", true},
+
+        {"text/meta-no-op-request.terms", true},
+
+        {"text/meta-arithmetic-request-001.terms", true},
+
+        {"text/meta-get-request.terms", true},
+        {"text/meta-get-flags-request.terms", true}])}.
+
+
 decode_encode_test_() ->
     {setup,
      fun
@@ -68,6 +157,7 @@ decode_encode_test_() ->
         "text/gets-request.terms",
         "text/value-response.terms",
         "text/value-cas-response.terms",
+        "text/value-end-response.terms",
 
         "text/set-request.terms",
         "text/replace-request.terms",
@@ -95,6 +185,7 @@ decode_encode_test_() ->
         "text/ok-response.terms",
 
         "text/incr-request.terms",
+        "text/incr-response.terms",
         "text/incr-noreply-request.terms",
 
         "text/touch-request.terms",
@@ -145,13 +236,38 @@ decode_encode_test_() ->
 
 
 decode_encode(Encoded) ->
+    case ?FUNCTION_NAME(Encoded, []) of
+        [Decoded] ->
+            Decoded;
+
+        Otherwise ->
+            Otherwise
+    end.
+
+decode_encode(Encoded, A) ->
+    case mcd_protocol:decode(
+           iolist_to_binary(Encoded)) of
+        {Decoded, <<>>} ->
+            lists:reverse([mcd_protocol:encode(Decoded) | A]);
+
+        {Decoded, Remainder} ->
+            ?FUNCTION_NAME(
+               Remainder,
+               [mcd_protocol:encode(Decoded) | A])
+    end.
+
+decode_reply_expected(Encoded) ->
     {Decoded, <<>>} = mcd_protocol:decode(
                         iolist_to_binary(Encoded)),
-    mcd_protocol:encode(Decoded).
+    mcd_protocol:reply_expected(Decoded).
 
 
 t(F) ->
     fun
+        ({Filename, ExpectedResult}) ->
+            {ok, Encoded} = file:consult(filename:join("test", Filename)),
+            {nm(Filename), ?_assertEqual(ExpectedResult, F(Encoded))};
+
         (Filename) ->
             {ok, Encoded} = file:consult(filename:join("test", Filename)),
             {nm(Filename),

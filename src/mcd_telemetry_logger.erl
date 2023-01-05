@@ -1,5 +1,4 @@
-%% -*- mode: erlang -*-
-%% Copyright (c) 2022 Peter Morgan <peter.james.morgan@gmail.com>
+%% Copyright (c) 2023 Peter Morgan <peter.james.morgan@gmail.com>
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -14,4 +13,15 @@
 %% limitations under the License.
 
 
-"gats 12321 foo bar baz\r\n".
+-module(mcd_telemetry_logger).
+
+
+-export([handle/4]).
+-include_lib("kernel/include/logger.hrl").
+
+%% An example telemetry handler
+handle(EventName, Measurements, Metadata, Config) ->
+    ?LOG_INFO(#{event_name => EventName,
+                measurements => Measurements,
+                metadata => Metadata,
+                config => Config}).

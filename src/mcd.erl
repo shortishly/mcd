@@ -17,6 +17,7 @@
 
 
 -export([priv_consult/1]).
+-export([priv_dir/0]).
 -export([start/0]).
 -export_type([int16/0]).
 -export_type([int32/0]).

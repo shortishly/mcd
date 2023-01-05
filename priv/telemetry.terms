@@ -1,5 +1,5 @@
 %% -*- mode: erlang -*-
-%% Copyright (c) 2022 Peter Morgan <peter.james.morgan@gmail.com>
+%% Copyright (c) 2023 Peter Morgan <peter.james.morgan@gmail.com>
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -14,4 +14,23 @@
 %% limitations under the License.
 
 
-"gats 12321 foo bar baz\r\n".
+[mcd, tcp, listener, accept].
+[mcd, tcp, listener, bind].
+[mcd, tcp, listener, connect].
+[mcd, tcp, listener, listen].
+[mcd, tcp, listener, open].
+[mcd, tcp, listener, select].
+
+[mcd, tcp, connection, connect].
+[mcd, tcp, connection, decode].
+[mcd, tcp, connection, encode].
+[mcd, tcp, connection, open].
+[mcd, tcp, connection, recv].
+[mcd, tcp, connection, send].
+
+[mcd, client, connect].
+[mcd, client, decode].
+[mcd, client, message].
+[mcd, client, open].
+[mcd, client, recv].
+[mcd, client, send].

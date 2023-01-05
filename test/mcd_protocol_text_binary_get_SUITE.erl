@@ -1,0 +1,175 @@
+%% Copyright (c) 2022 Peter Morgan <peter.james.morgan@gmail.com>
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%% http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+
+
+-module(mcd_protocol_text_binary_get_SUITE).
+
+
+-compile(export_all).
+-compile(nowarn_export_all).
+-include_lib("common_test/include/ct.hrl").
+-include_lib("eunit/include/eunit.hrl").
+
+
+all() ->
+    common:all(?MODULE).
+
+
+init_per_suite(Config) ->
+    _ = application:load(mcd),
+    application:set_env(mcd, protocol_callback, mcd_emulator),
+    {ok, _} = mcd:start(),
+    {ok, Client} = mcd_client:start(),
+    [{client, Client} | Config].
+
+
+end_per_suite(Config) ->
+    Client = ?config(client, Config),
+    ok = gen_statem:stop(Client),
+    ok = application:stop(mcd).
+
+
+mooo_test(Config) ->
+    K = alpha(5),
+    V = iolist_to_binary(["mooo", 0]),
+    Flags = 0,
+
+    ?assertMatch(
+       #{command := stored},
+       send_sync(
+         Config,
+         #{command => set,
+           key => K,
+           flags => Flags,
+           expiry => 0,
+           noreply => false,
+           data => V})),
+
+    [#{command := value,
+       key := K,
+       flags := Flags,
+       data := V},
+     #{command := 'end'}] = send_sync(
+                              Config,
+                              #{command => get,
+                                keys => [K]}).
+
+
+mumble_test(Config) ->
+    K = alpha(5),
+    V = iolist_to_binary(["mumble", 0, 0, 0, 0, "\r\r", "blarg"]),
+    Flags = 0,
+
+    ?assertMatch(
+       #{command := stored},
+       send_sync(
+         Config,
+         #{command => set,
+           key => K,
+           flags => Flags,
+           expiry => 0,
+           noreply => false,
+           data => V})),
+
+    [#{command := value,
+       key := K,
+       flags := Flags,
+       data := V},
+     #{command := 'end'}] = send_sync(
+                              Config,
+                              #{command => get,
+                                keys => [K]}).
+
+
+zero_test(Config) ->
+    K = alpha(5),
+    V = <<0>>,
+    Flags = 0,
+
+    ?assertMatch(
+       #{command := stored},
+       send_sync(
+         Config,
+         #{command => set,
+           key => K,
+           flags => Flags,
+           expiry => 0,
+           noreply => false,
+           data => V})),
+
+    [#{command := value,
+       key := K,
+       flags := Flags,
+       data := V},
+     #{command := 'end'}] = send_sync(
+                              Config,
+                              #{command => get,
+                                keys => [K]}).
+
+
+carriage_return_test(Config) ->
+    K = alpha(5),
+    V = <<"\r">>,
+    Flags = 0,
+
+    ?assertMatch(
+       #{command := stored},
+       send_sync(
+         Config,
+         #{command => set,
+           key => K,
+           flags => Flags,
+           expiry => 0,
+           noreply => false,
+           data => V})),
+
+    [#{command := value,
+       key := K,
+       flags := Flags,
+       data := V},
+     #{command := 'end'}] = send_sync(
+                              Config,
+                              #{command => get,
+                                keys => [K]}).
+
+
+send_sync(Config, Data) ->
+    Client = ?config(client, Config),
+
+    {reply, Reply} = gen_statem:receive_response(
+                       mcd_client:send(
+                         #{server_ref => Client,
+                           data => Data})),
+
+    Reply.
+
+request(Opcode) ->
+    #{meta => Opcode}.
+
+
+alpha(N) ->
+    list_to_binary(pick(N, lists:seq($a, $z))).
+
+
+pick(N, Pool) ->
+    ?FUNCTION_NAME(N, Pool, []).
+
+
+pick(0, _, A) ->
+    A;
+
+pick(N, Pool, A) ->
+    ?FUNCTION_NAME(N - 1,
+                   Pool,
+                   [lists:nth(rand:uniform(length(Pool)), Pool) | A]).
