@@ -50,7 +50,6 @@ PLT_APPS = \
 	ssl \
 	stdlib \
 	syntax_tools \
-	systools \
 	telemetry \
 	tools \
 	xmerl
