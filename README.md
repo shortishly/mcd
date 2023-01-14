@@ -43,9 +43,8 @@ docker run \
     --detach \
     --publish 11211:11211 \
     --rm \
-    ghcr.io/shortishly/mcd:0.1.0
+    ghcr.io/shortishly/mcd:latest
 ```
-
 
 ## API Example
 
@@ -67,7 +66,6 @@ fooval
 END
 ```
 
-
 The implementation uses some recently introduced features of
 [Erlang/OTP][erlang-org]:
 
@@ -77,20 +75,16 @@ The implementation uses some recently introduced features of
 - the [timeout][erlang-org-statem-timeout] feature of
   [statem][erlang-org-statem] to expire items from the cache.
 
-
-
-[erlang-shell]: https://www.erlang.org/doc/man/shell.html
 [erlang-mk]: https://erlang.mk
-[erlang-org-statem]: https://www.erlang.org/doc/man/gen_statem.html
-[erlang-org-statem-timeout]: https://www.erlang.org/doc/man/gen_statem.html#type-timeout_event_type
 [erlang-org-send-request-4]: https://www.erlang.org/doc/man/gen_statem.html#send_request-4
 [erlang-org-socket]: https://www.erlang.org/doc/man/socket.html
+[erlang-org-statem-timeout]: https://www.erlang.org/doc/man/gen_statem.html#type-timeout_event_type
+[erlang-org-statem]: https://www.erlang.org/doc/man/gen_statem.html
 [erlang-org]: https://www.erlang.org
+[erlang-shell]: https://www.erlang.org/doc/man/shell.html
 [ets-erlang-org]: https://www.erlang.org/doc/man/ets.html
 [mcd-github]: https://github.com/shortishly/mcd
-[memcached-github]: https://github.com/memcached/memcached
 [memcached-org]: https://memcached.org/
 [memcached-protocol-binary]: https://github.com/memcached/memcached/wiki/BinaryProtocolRevamped
 [memcached-protocol-meta]: https://github.com/memcached/memcached/wiki/MetaCommands
 [memcached-protocol-text]: https://github.com/memcached/memcached/wiki/Commands
-[memcached-wikipedia]: https://en.wikipedia.org/wiki/Memcached
