@@ -17,7 +17,7 @@
 ERLANG_MK_FILENAME := $(realpath $(lastword $(MAKEFILE_LIST)))
 export ERLANG_MK_FILENAME
 
-ERLANG_MK_VERSION = 94718f7
+ERLANG_MK_VERSION = 6423c1c
 ERLANG_MK_WITHOUT = 
 
 # Make 3.81 and 3.82 are deprecated.
@@ -6707,9 +6707,9 @@ endif
 endif
 
 define ct_suite_target
-ct-$(1): test-build
-	$(verbose) mkdir -p $(CT_LOGS_DIR)
-	$(gen_verbose_esc) $(CT_RUN) -sname ct_$(PROJECT) -suite $(addsuffix _SUITE,$(1)) $(CT_EXTRA) $(CT_OPTS)
+ct-$1: test-build
+	$$(verbose) mkdir -p $$(CT_LOGS_DIR)
+	$$(gen_verbose_esc) $$(CT_RUN) -sname ct_$$(PROJECT) -suite $$(addsuffix _SUITE,$1) $$(CT_EXTRA) $$(CT_OPTS)
 endef
 
 $(foreach test,$(CT_SUITES),$(eval $(call ct_suite_target,$(test))))
