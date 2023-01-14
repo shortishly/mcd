@@ -80,15 +80,22 @@ handle_event(internal,
     end;
 
 handle_event(internal,
-             {connect = EventName, Connection},
+             {connect = EventName, Socket},
              _,
              #{callback_data := CallbackData,
                arg := #{callback := Module}}) ->
-    {ok, _} = mcd_tcp_connection_sup:start_child(
-                #{socket => Connection,
-                  callback => #{data => CallbackData,
-                                module => Module}}),
-    {keep_state_and_data, nei({telemetry, EventName, #{count => 1}})};
+    {ok, Child} = mcd_tcp_connection_sup:start_child(
+                    #{socket => Socket,
+                      callback => #{data => CallbackData,
+                                    module => Module}}),
+    {keep_state_and_data,
+     [nei({setopt,
+           #{socket => Socket,
+             level => otp,
+             option => controlling_process,
+             value => Child}}),
+
+      nei({telemetry, EventName, #{count => 1}})]};
 
 handle_event(info,
              {'$socket', Listener, select = EventName, Handle},
@@ -144,7 +151,8 @@ handle_event(internal, open = EventName, _, Data) ->
                    #{count => 1}}),
 
               nei({setopt,
-                   #{level => socket,
+                   #{socket => Listener,
+                     level => socket,
                      option => reuseaddr,
                      value => true}}),
 
@@ -154,10 +162,12 @@ handle_event(internal, open = EventName, _, Data) ->
             {stop, Reason}
     end;
 
-handle_event(internal,
-             {setopt, #{level := Level, option := Option, value := Value}},
-             _,
-             #{socket := Socket}) ->
+handle_event(
+  internal,
+  {setopt,
+   #{socket := Socket, level := Level, option := Option, value := Value}},
+  _,
+  _) ->
     case socket:setopt(Socket, {Level, Option}, Value) of
         ok ->
             keep_state_and_data;
