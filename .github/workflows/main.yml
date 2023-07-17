@@ -56,6 +56,7 @@ jobs:
       - uses: erlef/setup-beam@v1
         with:
           otp-version: ${{matrix.otp}}
+      - run: make edoc
       - run: make tests
       - run: bin/coverdata --output _site/cover/coverage.json --precision 3
       - uses: actions/upload-pages-artifact@v1
