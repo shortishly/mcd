@@ -6,6 +6,8 @@ on:
       - develop
     tags:
       - '[0-9]+.[0-9]+.[0-9]+'
+permissions:
+  packages: write
 env:
   REGISTRY: 'ghcr.io'
 jobs:
@@ -24,8 +26,8 @@ jobs:
       - run: make deps app dialyze tests
       - uses: actions/upload-artifact@v3
         with:
-          name: ct-logs
-          path: logs
+          name: ct-logs-otp-${{matrix.otp}}
+          path: _site/ct
   package:
     needs: build
     strategy:
@@ -34,8 +36,7 @@ jobs:
           - 26
     runs-on: ubuntu-latest
     steps:
-      - name: Beam Docker Release
-        uses: shortishly/beam-docker-release-action@main
+      - uses: shortishly/beam-docker-release-action@main
         with:
           registry: ${{env.REGISTRY}}
           username: ${{github.actor}}
