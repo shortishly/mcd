@@ -33,6 +33,7 @@ jobs:
         otp:
           - 26
     runs-on: ubuntu-latest
+    steps:
       - name: Beam Docker Release
         uses: shortishly/beam-docker-release-action@main
         with:
