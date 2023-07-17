@@ -17,6 +17,9 @@ PROJECT = mcd
 PROJECT_DESCRIPTION = memcache protocol
 PROJECT_VERSION = ${shell git describe --tags}
 
+COVER = 1
+COVER_REPORT_DIR = _site/cover
+
 DEPS = \
 	envy \
 	phrase \
@@ -66,7 +69,7 @@ dep_phrase_commit = 0.1.0
 dep_telemetry_commit = v1.1.0
 
 
-include erlang.mk
+include $(if $(ERLANG_MK_FILENAME),$(ERLANG_MK_FILENAME),erlang.mk)
 
 
 app:: rebar.config
