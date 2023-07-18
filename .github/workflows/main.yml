@@ -6,8 +6,6 @@ on:
       - develop
     tags:
       - '[0-9]+.[0-9]+.[0-9]+'
-permissions:
-  packages: write
 env:
   REGISTRY: 'ghcr.io'
 jobs:
@@ -32,6 +30,7 @@ jobs:
     needs: build
     permissions:
       security-events: write
+      packages: write
     strategy:
       matrix:
         otp:
