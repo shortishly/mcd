@@ -45,10 +45,6 @@ jobs:
           image-description: >-
             memcached API compatible server and client
           image-licenses: Apache-2.0
-  security:
-    needs: package
-    runs-on: ubuntu-latest
-    steps:
       - uses: snyk/actions/docker@master
         env:
           SNYK_TOKEN: ${{secrets.SNYK_TOKEN}}
