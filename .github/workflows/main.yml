@@ -30,6 +30,8 @@ jobs:
           path: _site/ct
   package:
     needs: build
+    permissions:
+      security-events: write
     strategy:
       matrix:
         otp:
