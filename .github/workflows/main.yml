@@ -29,7 +29,6 @@ jobs:
   package:
     needs: build
     permissions:
-      security-events: write
       packages: write
     strategy:
       matrix:
@@ -51,9 +50,6 @@ jobs:
           SNYK_TOKEN: ${{secrets.SNYK_TOKEN}}
         with:
           image: ${{env.DOCKER_IMAGE_TAGS}}
-      - uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: snyk.sarif
   site:
     needs: build
     strategy:
