@@ -34,7 +34,6 @@ memcached(port = Name) ->
     envy(#{caller => ?MODULE,
            names => [?FUNCTION_NAME, Name],
            default => 11211});
-
 memcached(hostname = Name) ->
     envy(#{caller => ?MODULE,
            names => [?FUNCTION_NAME, Name],

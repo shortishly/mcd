@@ -1,0 +1,10 @@
+---
+services:
+  mcd:
+    image:
+      ${MCD_IMAGE:-ghcr.io/shortishly/mcd:${MCD_VERSION:-latest}}
+    ports:
+      - 11211:11211
+    pull_policy:
+      ${PULL_POLICY:-always}
+    restart: unless-stopped
