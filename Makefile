@@ -65,9 +65,10 @@ dep_envy = git https://github.com/shortishly/envy.git
 dep_phrase = git https://github.com/shortishly/phrase.git
 dep_telemetry = git https://github.com/beam-telemetry/telemetry.git
 
-dep_beaming_commit = 0.1.0
-dep_envy_commit = 0.7.2
-dep_phrase_commit = 0.1.0
+dep_beaming_commit = 0.2.0
+dep_envy_commit = 0.9.2
+dep_phrase_commit = 0.2.1
+dep_recon_commit = 2.5.4
 dep_telemetry_commit = v1.1.0
 
 
